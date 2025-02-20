@@ -12,7 +12,7 @@ intents = intents = discord.Intents().all()
 
 description = 'Discord Assault PUG Bot'
 
-extensions = ['cogs.admin', 'cogs.info', 'cogs.pug']
+extensions = ['cogs.admin', 'cogs.info', 'cogs.pug', 'cogs.charts']
 
 #########################################################################################
 # Logging
@@ -59,6 +59,11 @@ async def on_ready():
         except Exception as e:
             log.error('Failed to load extension {}\n{}: {}'.format(
                 extension, type(e).__name__, e))
+    try:
+        synced = await bot.tree.sync()
+        log.info('Synchronised bot tree, consisting of {0} slash-commands.'.format(len(synced)))
+    except Exception as e:
+        log.error('Error while synchronising bot tree slash-commands: {0}'.format(e))
 
 @bot.event
 async def on_resumed():

@@ -1,5 +1,8 @@
-discord
+discord >= 2.3.0
 requests
 asyncpg
 gitpython
 dnspython
+plotly
+pillow
+kaleido

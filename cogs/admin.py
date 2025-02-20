@@ -2,7 +2,10 @@ import json
 import discord
 from discord.ext import commands, tasks
 import os
+import sys
 import git
+import logging
+from datetime import datetime
 
 DEFAULT_CONFIG_FILE = 'servers/config.json'
 DEFAULT_MANAGER_ROLE = 'PugBotManager'
@@ -11,6 +14,28 @@ DEFAULT_MANAGER_ROLE = 'PugBotManager'
 # Utilities.
 #########################################################################################
 def hasManagerRole_Check(ctx): return ctx.bot.get_cog('Admin').hasManagerRole(ctx)
+
+def setupLogging(name, file_level=logging.DEBUG, screen_level=logging.INFO):
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                datefmt='%Y-%m-%d %H:%M:%S')
+    logfilename = 'log//{0}-{1}.log'.format(name,datetime.now().strftime('%Y-%m-%d'))
+    os.makedirs(os.path.dirname(logfilename), exist_ok=True)
+    handler = logging.FileHandler(filename=logfilename, encoding='utf-8', mode='w')
+    handler.setFormatter(formatter)
+    handler.setLevel(file_level)
+
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    screen_handler.setLevel(screen_level)
+    logger = logging.getLogger(name)
+    logger.setLevel(file_level)
+    if handler not in logger.handlers:
+        logger.addHandler(handler)
+    if screen_handler not in logger.handlers:
+        logger.addHandler(screen_handler)
+    return logger
+
+log = setupLogging('admin',logging.INFO,logging.INFO)
 
 #########################################################################################
 # Admin cog class.
@@ -68,7 +93,7 @@ class Admin(commands.Cog):
             if self.managerRole == i.name or self.managerRole == i.mention:
                 return True
         return False
-
+    
 #########################################################################################
 # Commands
 #########################################################################################

@@ -91,25 +91,25 @@ class Info(commands.Cog):
     @commands.guild_only()
     async def bunnytrack(self, ctx):
         """Shows UTA BunnyTrack server info"""
-        await ctx.send("UTA BunnyTrack server: **unreal://www.utapug.net:9100**")
+        await ctx.send("UTA BunnyTrack server: **unreal://bt.utassault.net:9100**")
 
-    @commands.command(aliases = ['tdm', 'dm'])
-    @commands.guild_only()
-    async def deathmatch(self, ctx):
-        """Shows UTA TDM server info"""
-        await ctx.send("UTA TDM server: **unreal://51.195.40.255:7777**")
+    # @commands.command(aliases = ['tdm', 'dm'])
+    # @commands.guild_only()
+    # async def deathmatch(self, ctx):
+    #     """Shows UTA TDM server info"""
+    #     await ctx.send("UTA TDM server: **unreal://51.195.40.255:7777**")
 
-    @commands.command(aliases = ['ffa'])
-    @commands.guild_only()
-    async def freeforall(self, ctx):
-        """Shows UTA FFA server info"""
-        await ctx.send("UTA FFA server: **unreal://51.195.40.255:7786**")
+    # @commands.command(aliases = ['ffa'])
+    # @commands.guild_only()
+    # async def freeforall(self, ctx):
+    #     """Shows UTA FFA server info"""
+    #     await ctx.send("UTA FFA server: **unreal://51.195.40.255:7786**")
 
-    @commands.command(aliases = ['ra'])
+    @commands.command(aliases = ['ra','dm','tdm','ffa'])
     @commands.guild_only()
     async def rocketarena(self, ctx):
         """Shows UTA RocketArena server info"""
-        await ctx.send("UTA RocketArena server: **unreal://www.utapug.net:9600**")
+        await ctx.send("UTA RocketArena/DM server: **unreal://ra.utassault.net:9600**")
 
 async def setup(bot):
     await bot.add_cog(Info(bot))
