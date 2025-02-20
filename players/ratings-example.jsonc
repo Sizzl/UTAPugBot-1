@@ -1,0 +1,213 @@
+{
+  "rankedgames": [
+    {
+      "mode": "rASPlus", // defined rank mode
+      "maps": {
+        "maplist": [
+          {
+            "map": "AS-AsthenosphereSE2", // name of the map without file extension
+            "order": 1,                   // which "pick order" slot this will be selected (0 is any)
+            "weight": 1                   // weighting of this choice (1 or above) - higher weight = higher chance of being picked
+          },
+          {
+            "map": "AS-Ballistic",
+            "order": 1,
+            "weight": 2
+          },
+          {
+            "map": "AS-BridgePV_beta8",
+            "order": 1,
+            "weight": 2
+          },
+          {
+            "map": "AS-NaliColony_beta5",
+            "order": 1,
+            "weight": 1
+          },
+          {
+            "map": "AS-O-MG_pv3a",
+            "order": 1,
+            "weight": 1
+          },
+          {
+            "map": "AS-AutoRIPSE_beta7b",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-Desolate][",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-GolgothaAL",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-Riverbed]l[AL",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-Desertstorm",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-Golgotha][AL",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-TheDungeon]l[AL",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-Siege][",
+            "order": 2,
+            "weight": 1
+          },
+          {
+            "map": "AS-AutoRIPSE_beta7b",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-Desolate][",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-GolgothaAL",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-Riverbed]l[AL",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-Desertstorm",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-Golgotha][AL",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-TheDungeon]l[AL",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-Siege][",
+            "order": 3,
+            "weight": 1
+          },
+          {
+            "map": "AS-Navarone_EXT5",
+            "order": 4,
+            "weight": 1
+          },
+          {
+            "map": "AS-TheProjectEXT3",
+            "order": 4,
+            "weight": 1
+          },
+          {
+            "map": "AS-Templar_preview6",
+            "order": 4,
+            "weight": 1
+          },
+          {
+            "map": "AS-DustbowlAL-NE_beta2",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-TheScarabSE",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-LavaFort][PE_b18",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-Vampire",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-ColderSteelPE_beta4a",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-SaqqaraPE_beta4a1",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-SnowDunes_Delta",
+            "order": 5,
+            "weight": 2
+          },
+          {
+            "map": "AS-Frigate",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-HiSpeed",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-Mazon",
+            "order": 5,
+            "weight": 1
+          },
+          {
+            "map": "AS-Submarinebase][",
+            "order": 5,
+            "weight": 2
+          }
+        ],
+        "fixedpicklimit": 5
+      },
+      "eligibility": "",    // if this is not empty then limit who can sign-up to a Discord role
+      "registrations": [    // list of discord IDs registered, whether they have a rating or not - may become redundant in future and built from ratings instead
+        189485300001538048, // Sizzl
+        124605651006521344  // uZi
+      ],
+      "ratings": [
+        {
+          "did": 189485300001538048, // discord ID of the player
+          "dlastnick": "Sizzl",      // discord local display name
+          "ratingdate": "2025-02-14T13:37:00.0000000+00:00", // date stamp rating was set
+          "ratingvalue": 400,        // current rating value
+          "ratingprevious": 0,       // previous rating, 0 if this is the first entry for a player
+          "lastgamedate": "",        // last game date - if empty, then player has just been registered with a rating
+          "lastgameref": ""          // game ref from API
+        },
+        {
+          "did": 124605651006521344,
+          "dlastnick": "uZi",
+          "ratingdate": "2025-02-14T13:37:00.0000000+00:00",
+          "ratingvalue": 895,
+          "ratingprevious": 0,
+          "lastgamedate": "",
+          "lastgameref": ""
+        }
+      ],
+      "lastsync": "2025-02-14T13:37:00.0000000+00:00" // last time the data was synchronised to backend (future)
+    }
+  ]
+}
