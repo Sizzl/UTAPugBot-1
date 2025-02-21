@@ -1552,7 +1552,7 @@ class AssaultPug(PugTeams):
         self.pugLocked = False
         return True
     
-    def setRankedMode(self, rankedMode: bool):
+    def setRankedMode(self, rankedMode: bool, skipResets: bool = False):
         # Perform any checks needed when switching between ranked and non-ranked modes
         self.maps.rankedMode = self.ranked = False
         self.maps.filteredMapsList = self.maps.availableMapsList
@@ -1561,12 +1561,13 @@ class AssaultPug(PugTeams):
         if rankedMode == False and self.ratingsFile != '':
             log.debug('setRankedMode({0}) - Calling savePugRatings({1})'.format(rankedMode,self.ratingsFile))
             self.savePugRatings(self.ratingsFile)
-        log.debug('setRankedMode({0}) - Calling softPugTeamReset()'.format(rankedMode))
-        self.softPugTeamReset() # clear any caps / picks
-        log.debug('setRankedMode({0}) - Calling configurePlayersRankedMode({1},{2})'.format(rankedMode,self.ranked,self.roleRequired))
-        self.configurePlayersRankedMode(self.ranked, self.roleRequired) # reconfigure teams and players
-        log.debug('setRankedMode({0}) - Calling maps.resetMaps()'.format(rankedMode))
-        self.maps.resetMaps() # reset map selection
+        if skipResets != True:
+            log.debug('setRankedMode({0}) - Calling softPugTeamReset()'.format(rankedMode))
+            self.softPugTeamReset() # clear any caps / picks
+            log.debug('setRankedMode({0}) - Calling configurePlayersRankedMode({1},{2})'.format(rankedMode,self.ranked,self.roleRequired))
+            self.configurePlayersRankedMode(self.ranked, self.roleRequired) # reconfigure teams and players
+            log.debug('setRankedMode({0}) - Calling maps.resetMaps()'.format(rankedMode))
+            self.maps.resetMaps() # reset map selection
         if rankedMode and self.ratingsFile != '':
             log.debug('setRankedMode({0}) - Calling loadPugRatings({1})'.format(rankedMode,self.ratingsFile))
             if self.loadPugRatings(self.ratingsFile):
@@ -1610,14 +1611,14 @@ class AssaultPug(PugTeams):
                 additionalInfo = ''
                 if MODE_CONFIG[requestedMode].isRanked:
                     log.debug('Setting up ranked mode - {0}'.format(requestedMode))
-                    if self.setRankedMode(MODE_CONFIG[requestedMode].isRanked):
+                    if self.setRankedMode(MODE_CONFIG[requestedMode].isRanked, False):
                         self.desc = 'Ranked Assault (' + self.mode + ') PUG'
                         additionalInfo = ' (ranked, best of '+str(self.maps.maxMaps)+' maps)'
                     else:
                         log.debug('setRankedMode({0}) failed'.format(MODE_CONFIG[requestedMode].isRanked))
                         self.mode = lastMode # Revert if ratings failed to load for this game mode    
                 else:
-                    self.setRankedMode(False)
+                    self.setRankedMode(False,False)
                 if self.ranked != True:
                     self.desc = 'Assault (' + self.mode + ') PUG'
                 if (self.mode == requestedMode):
@@ -2356,6 +2357,58 @@ class PUG(commands.Cog):
                 else:
                     self.customStaticEmojis[':{0}:'.format(x.name)] = x.id
 
+    def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False):
+        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile,True)
+        if 'rankedgames' in rkData:
+            log.debug('{0}({1},{2},{3},{4}) - ranked games present.'.format(action,player.id,mode,rating,toggle))
+            for x in rkData['rankedgames']:
+                if 'mode' in x and str(x['mode']).upper() == mode.upper():
+                    log.debug('{0}({1},{2},{3},{4}) - enumerating mode {5}.'.format(action,player.id,mode,rating,toggle,x['mode']))
+                    mode = x['mode'] # update formatting
+                    if (action == 'rkset'):
+                        if player.id not in x['registrations']:
+                            x['registrations'].append(player.id) # register player as eligible
+                            log.debug('{0}({1},{2},{3},{4}) - registering new pid for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
+                        rkUpdate = False
+                        for r in x['ratings']:
+                            if r['did'] == player.id:
+                                log.debug('{0}({1},{2},{3},{4}) - updating existing rank data for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
+                                r['dlastnick'] = player.display_name
+                                r['ratingdate'] = datetime.now().isoformat()
+                                r['ratingprevious'] = r['ratingvalue']
+                                r['ratingvalue'] = rating
+                                r['lastgamedate'] = ''
+                                r['lastgameref'] = ''
+                                rkUpdate = True
+                        if rkUpdate == False: # new entry required
+                            log.debug('{0}({1},{2},{3},{4}) - adding new rank data for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
+                            x['ratings'].append({
+                                "did": player.id,
+                                "dlastnick": player.display_name,
+                                "ratingdate": datetime.now().isoformat(),
+                                "ratingprevious": 0,
+                                "ratingvalue": rating,
+                                "lastgamedate": "",
+                                "lastgameref": ""
+                            })
+                        msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,player.display_name,player.id,mode)
+                    elif (action == 'rkdel'):
+                        if player.id in x['registrations']:
+                            x['registrations'].remove(player.id)
+                        for r in x['ratings']:
+                            if r['did'] == player.id:
+                                x['ratings'].remove(r)
+                        msg = 'Ranked player rating removed for {0} (id:{1}) in game mode {2}'.format(player.display_name,player.id,mode)
+                    else:
+                        msg = 'Unsupported action called.'
+        if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
+            if (self.pugInfo.ranked): # reload data for current ranked mode
+                self.pugInfo.setRankedMode(self.pugInfo.ranked,True)
+        else:
+            msg = 'Error - rank data could not be saved; check bot logs.'
+        return msg
+
     #########################################################################################
     # Bot Admin ONLY commands.
     #########################################################################################
@@ -2617,49 +2670,24 @@ class PUG(commands.Cog):
     async def rkset(self, ctx, player: discord.Member, mode: str = 'rASPlus', rating: int = 500, force: str = ''):
         """Adds or sets a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus) Weight(e.g., 500)"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked and force != 'force':
-            await ctx.send('A ranked match is already underway at {0} [{1},{2},{3}]'.format(self.pugInfo.gameServer.format_gameServerURL,self.pugInfo.pugLocked,self.pugInfo.ranked,force))
+            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
             await ctx.send('Use a "force" suffix to this command to forcefully add or set a rank while a match is in progress.')
         else:
-            # Save then load the current ratings before manipulating and saving again
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile,True)
-            if 'rankedgames' in rkData:
-                log.debug('rkset({0},{1},{2},{3}) - ranked games present.'.format(player.id,mode,rating,force))
-                for x in rkData['rankedgames']:
-                    if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                        log.debug('rkset({0},{1},{2},{3}) - updating mode {4}.'.format(player.id,mode,rating,force,x['mode']))
-                        mode = x['mode'] # update formatting
-                        if player.id not in x['registrations']:
-                            x['registrations'].append(player.id) # register player as eligible
-                            log.debug('rkset({0},{1},{2},{3}) - registering new pid for {4}.'.format(player.id,mode,rating,force,player.display_name))
-                        rkUpdate = False
-                        for r in x['ratings']:
-                            if r['did'] == player.id:
-                                log.debug('rkset({0},{1},{2},{3}) - updating existing rank data for {4}.'.format(player.id,mode,rating,force,player.display_name))
-                                r['dlastnick'] = player.display_name
-                                r['ratingdate'] = datetime.now().isoformat()
-                                r['ratingprevious'] = r['ratingvalue']
-                                r['ratingvalue'] = rating
-                                r['lastgamedate'] = ''
-                                r['lastgameref'] = ''
-                                rkUpdate = True
-                        if rkUpdate == False: # new entry required
-                            log.debug('rkset({0},{1},{2},{3}) - adding new rank data for {4}.'.format(player.id,mode,rating,force,player.display_name))
-                            x['ratings'].append({
-                                "did": player.id,
-                                "dlastnick": player.display_name,
-                                "ratingdate": datetime.now().isoformat(),
-                                "ratingprevious": 0,
-                                "ratingvalue": rating,
-                                "lastgamedate": "",
-                                "lastgameref": ""
-                            })
-            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,player.display_name,player.id,mode))
-                if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile)
-            else:
-                await ctx.send('Error - rank data could not be saved; check bot logs.')
+            msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating,force)
+            await ctx.send(msg)
+        return True
+    
+    @commands.hybrid_command(aliases=['rmrk','rkrm','rkdelete','rankdel','rankremove'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkdel(self, ctx, player: discord.Member, mode: str = 'rASPlus', force: str = ''):
+        """Removes a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus)"""
+        if self.pugInfo.pugLocked and self.pugInfo.ranked and force != 'force':
+            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+            await ctx.send('Use a "force" suffix to this command to forcefully remove a rank while a match is in progress.')
+        else:
+            msg = self.ratingsPlayerDataHandler('rkdel',mode,player,0,force)
+            await ctx.send(msg)
         return True
 
     @commands.command(aliases=['clearmaplist'])
@@ -2692,7 +2720,7 @@ class PUG(commands.Cog):
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
                 await ctx.send('Map list and pick limit cleared for ranked game mode {0}'.format(mode))
                 if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile)
+                    self.pugInfo.setRankedMode(self.pugInfo.ranked,True)
             else:
                 await ctx.send('Error - ranked map data could not be saved; check bot logs.')
         return True
@@ -2751,7 +2779,7 @@ class PUG(commands.Cog):
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
                 await ctx.send('Map list updated for ranked game mode {0}'.format(mode))
                 if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile)
+                    self.pugInfo.setRankedMode(self.pugInfo.ranked,True)
             elif rkUpdate==False:
                 await ctx.send('Error - a ranked map limit could not be saved - game mode not found.')
             else:
@@ -2790,7 +2818,7 @@ class PUG(commands.Cog):
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
                 await ctx.send('Map list updated for ranked game mode {0}'.format(mode))
                 if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile)
+                    self.pugInfo.setRankedMode(self.pugInfo.ranked,True)
             elif rkUpdate==False:
                 await ctx.send('Error - a ranked map limit could not be saved - game mode not found.')
             else:
