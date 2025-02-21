@@ -2800,7 +2800,7 @@ class PUG(commands.Cog):
     #########################################################################################
     # Bot commands.
     #########################################################################################
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     async def disable(self, ctx):
@@ -2814,7 +2814,7 @@ class PUG(commands.Cog):
             return
         await ctx.send('PUG commands were not active in any channels.')
     
-    @commands.command(aliases = ['pug'])
+    @commands.hybrid_command(aliases = ['pug'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def list(self, ctx):
@@ -2822,7 +2822,7 @@ class PUG(commands.Cog):
         if self.pugInfo.pugLocked:
             # Pug in progress, show the teams/maps.
             await ctx.send(self.pugInfo.format_match_in_progress)
-        elif self.pugInfo.ranked:
+        elif self.pugInfo.teamsReady and self.pugInfo.ranked:
             # Ranked mode, just display teams and maps
             msg = '\n'.join([
                 self.pugInfo.format_pug_short,
@@ -2850,7 +2850,7 @@ class PUG(commands.Cog):
             # Default, show sign ups.
             msg = []
             msg.append(self.pugInfo.format_pug())
-            if self.pugInfo.playersReady:
+            if self.pugInfo.playersReady and not self.pugInfo.ranked:
                 # Copy of what's in processPugStatus, not ideal, but avoids the extra logic it does.
                 if self.pugInfo.numCaptains == 1:
                     # Need second captain.
@@ -2859,7 +2859,7 @@ class PUG(commands.Cog):
                     msg.append('Waiting for captains. Type **!captain** to become a captain. To choose random captains type **!randomcaptains**')
             await ctx.send('\n'.join(msg))
 
-    @commands.command(aliases = ['pugtime'])
+    @commands.hybrid_command(aliases = ['pugtime'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Ignore)
@@ -2873,7 +2873,7 @@ class PUG(commands.Cog):
         self.lastPokeTime = datetime.now()
         await ctx.send('Hey @here it\'s PUG TIME!!!\n**{0}** needed for **{1}**!'.format(self.pugInfo.playersNeeded, self.pugInfo.desc))
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Ignore)
@@ -2887,20 +2887,20 @@ class PUG(commands.Cog):
         self.lastPokeTime = datetime.now()
         await ctx.send('Poking those signed (you will be unable to poke for {0} seconds): {1}'.format(delay, self.pugInfo.format_all_players(number=False, mention=True)))
 
-    @commands.command(aliases = ['serverlist'])
+    @commands.hybrid_command(aliases = ['serverlist'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
-    async def listservers(self,ctx):
+    async def listservers(self, ctx):
         await ctx.send(self.pugInfo.gameServer.format_showall_servers)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def server(self, ctx):
         """Displays Pug server info"""
         await ctx.send(self.pugInfo.gameServer.format_game_server)
 
-    @commands.command(aliases = ['serverinfo'])
+    @commands.hybrid_command(aliases = ['serverinfo'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def serverstatus(self, ctx):
@@ -2916,7 +2916,7 @@ class PUG(commands.Cog):
         else:
             await ctx.send(self.pugInfo.gameServer.format_game_server_status)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def serverquery(self, ctx, serveraddr: str):
@@ -2975,7 +2975,7 @@ class PUG(commands.Cog):
             else:
                 await ctx.send('Could not resolve server from provided information.')
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def listmodes(self, ctx):
@@ -2986,7 +2986,7 @@ class PUG(commands.Cog):
         outStr.append(PLASEP)
         await ctx.send(' '.join(outStr))
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -3002,7 +3002,7 @@ class PUG(commands.Cog):
             if result[0]:
                 await self.processPugStatus(ctx)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -3017,7 +3017,7 @@ class PUG(commands.Cog):
         else:
             await ctx.send('Player limit unchanged. Players must be a multiple of 2 + between 2 and ' + str(MODE_CONFIG[self.pugInfo.mode].maxPlayers))
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -3034,7 +3034,7 @@ class PUG(commands.Cog):
         else:
             await ctx.send('Map limit unchanged. Map limit is {}'.format(self.pugInfo.maps.maxMapsLimit))
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def reset(self, ctx):
@@ -3069,7 +3069,7 @@ class PUG(commands.Cog):
             else:
                 await ctx.send('Reset failed. Please, try again or inform an admin.')
 
-    @commands.command(aliases=['replay'])
+    @commands.hybrid_command(aliases=['replay'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def retry(self, ctx):
@@ -3084,7 +3084,7 @@ class PUG(commands.Cog):
             # TODO: Recall saved data from last match and play it back into the bot
             await ctx.send('Retry can only be utilised after a failed setup.')
 
-    @commands.command(aliases=['resetcaps','resetcap'])
+    @commands.hybrid_command(aliases=['resetcaps','resetcap'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -3098,7 +3098,7 @@ class PUG(commands.Cog):
         await ctx.send('Captains have been reset.')
         await self.processPugStatus(ctx)
 
-    @commands.command(aliases=['j'])
+    @commands.hybrid_command(aliases=['j'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -3109,6 +3109,9 @@ class PUG(commands.Cog):
             if not self.pugInfo.addRankedPlayer(player):
                 if self.pugInfo.playersReady:
                     await ctx.send('Ranked pug is already full.')
+                    return
+                elif player in self.pugInfo.players:
+                    await ctx.send('Already added.')
                     return
                 else:
                     await ctx.send('{0} could not be added - ineligible to join a ranked pug.'.format(display_name(player)))
@@ -3124,7 +3127,7 @@ class PUG(commands.Cog):
         await ctx.send('{0} was added.\n{1}'.format(display_name(player), self.pugInfo.format_pug()))
         await self.processPugStatus(ctx)
 
-    @commands.command(aliases=['l', 'lva'])
+    @commands.hybrid_command(aliases=['l', 'lva'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -3135,7 +3138,7 @@ class PUG(commands.Cog):
             await ctx.send('{0} left.'.format(display_name(player)))
             await self.processPugStatus(ctx)
 
-    @commands.command(aliases=['cap','сфзефшт'])
+    @commands.hybrid_command(aliases=['cap','сфзефшт'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Ignore)
@@ -3150,7 +3153,7 @@ class PUG(commands.Cog):
             await ctx.send(player.mention + ' has volunteered as a captain!')
             await self.processPugStatus(ctx)
 
-    @commands.command(aliases=['randcap'])
+    @commands.hybrid_command(aliases=['randcap'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Ignore)
@@ -3169,7 +3172,7 @@ class PUG(commands.Cog):
     @commands.command(aliases=['p'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
-    async def pick(self, ctx, *players: int):
+    async def pick(self, ctx, *players: int): # hybrid_command doesn't support an undefined number of params - may need adjusting
         """Picks a player for a team in the pug"""
         captain = ctx.message.author
         # TODO: improve this, don't think we should use matchInProgress
@@ -3183,7 +3186,7 @@ class PUG(commands.Cog):
                 await ctx.send('Teams have been selected:\n{}'.format(self.pugInfo.format_teams(mention=True)))
             await self.processPugStatus(ctx)
 
-    @commands.command(aliases=['maplist'])
+    @commands.hybrid_command(aliases=['maplist'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def listmaps(self, ctx, str: str=""):
@@ -3200,7 +3203,7 @@ class PUG(commands.Cog):
             msg.append(self.pugInfo.maps.format_available_maplist)
         await ctx.send('\n'.join(msg))
 
-    @commands.command(aliases=['m'])
+    @commands.hybrid_command(aliases=['m'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def map(self, ctx, idx: int):
@@ -3224,7 +3227,7 @@ class PUG(commands.Cog):
         await ctx.send(' '.join(msg))
         await self.processPugStatus(ctx)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def last(self, ctx):
@@ -3236,7 +3239,7 @@ class PUG(commands.Cog):
         else:
             await ctx.send(self.pugInfo.format_last_pug)
 
-    @commands.command(aliases = ['setrep','repchan'])
+    @commands.hybrid_command(aliases = ['setrep','repchan'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     async def setreporter(self, ctx):
@@ -3245,7 +3248,7 @@ class PUG(commands.Cog):
         await ctx.send('UT Reporter threads will be active in this channel for the next PUG.')
         return
 
-    @commands.command(aliases = ['muterep'])
+    @commands.hybrid_command(aliases = ['muterep'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     async def mutereporter(self, ctx):
@@ -3258,7 +3261,7 @@ class PUG(commands.Cog):
             await ctx.send('UT Reporter channel not defined, or threads not currently running.')
         return
 
-    @commands.command(aliases = ['startrep','forcerep'])
+    @commands.hybrid_command(aliases = ['startrep','forcerep'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     async def startreporter(self, ctx):

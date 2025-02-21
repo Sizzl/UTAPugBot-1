@@ -11,7 +11,8 @@ ratings.json
 config.xml
 default_server.json
 default_server.xml
-
+*Copy*.json
+*bak.json
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 
