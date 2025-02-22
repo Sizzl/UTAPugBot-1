@@ -360,15 +360,24 @@ class PugMaps:
             # So all the numbers must stay the same if we're showing all maps...
             # Even if we're only giving them the illusion of choice.
             listedMaps = []
+            unlistedMaps = []
             for idx, x in indexedMaps:
                 if (x in self.filteredMapsList):
                     listedMaps.append('**{0})** __{1}__'.format(idx, x))
                 else:
                     listedMaps.append('**{0})** ~~{1}~~'.format(idx, x))
-            return PLASEP.join(listedMaps)
+            for x in self.filteredMapsList:
+                if (x not in maps):
+                    unlistedMaps.append(x)
+            if len(unlistedMaps) > 0:
+                msg = '\n'.join([PLASEP.join(listedMaps),'Plus additional ranked-mode specific maps:',PLASEP.join(unlistedMaps)])
+            else:
+                msg = PLASEP.join(listedMaps)
+            return msg
         else:
             if (self.rankedMode):
-                return PLASEP.join('{1}'.format(*x) for x in indexedMaps)
+                uniqMaps = list(set(indexedMaps))
+                return PLASEP.join('{1}'.format(*x) for x in uniqMaps)
             else:
                 return PLASEP.join('**{0})** {1}'.format(*x) for x in indexedMaps)
 
