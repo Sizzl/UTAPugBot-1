@@ -354,7 +354,7 @@ class PugMaps:
     #########################################################################################
     def format_maplist(self, maps, filteredOnly: bool = False):
         indexedMaps = self.indexMaps(maps)
-        if (self.rankedMode and filteredOnly == False):
+        if (self.rankedMode and filteredOnly == False and len(maps) != self.maxMaps):
             # Ranked modes can offer a sub-set of the maplist,
             # However, our smooth-brained players don't like change, 
             # So all the numbers must stay the same if we're showing all maps...
@@ -375,7 +375,7 @@ class PugMaps:
                 msg = PLASEP.join(listedMaps)
             return msg
         else:
-            if (self.rankedMode):
+            if (self.rankedMode and len(maps) != self.maxMaps):
                 uniqMaps = list(set(indexedMaps))
                 return PLASEP.join('{1}'.format(*x) for x in uniqMaps)
             else:
@@ -1412,7 +1412,7 @@ class AssaultPug(PugTeams):
     def format_players(self, players, number: bool = False, mention: bool = False):
         def name(p):
             return p.mention if mention else display_name(p)
-        numberedPlayers = ((i, name(p)) for i, p in enumerate(players, 1) if p)
+        numberedPlayers = ((i, name(p)) for i, p in enumerate(list(set(players)), 1) if p)
         fmt = '**{0})** {1}' if number else '{1}'
         return PLASEP.join(fmt.format(*x) for x in numberedPlayers)
 
@@ -1730,7 +1730,7 @@ class AssaultPug(PugTeams):
                 self.red.append(p)
             if (playerMap[p.id] in rankedBlue and p.id not in self.red and p.id not in self.blue):
                 self.blue.append(p)
-        msg = 'Red cost: {0}; Blue cost: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
+        msg = 'Red RP: {0}; Blue RP: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
         log.debug('makeRatedTeams() completed: {0}'.format(msg))
         return msg
 
@@ -2011,6 +2011,7 @@ class PUG(commands.Cog):
                 return
             if self.pugInfo.ranked:
                 msg = '\n'.join(['Ranked mode map selection complete. Setting up match now.',self.pugInfo.maps.format_current_maplist])
+                self.pugInfo.pugTempLocked = True
                 await ctx.send(msg)
             if self.pugInfo.gameServer.gameServerOnDemand and not self.pugInfo.gameServer.gameServerOnDemandReady:
                 await ctx.send('Waiting for {0} to be ready for action...'.format(self.parent.gameServer.gameServerName))
