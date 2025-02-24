@@ -180,7 +180,15 @@
             "weight": 2
           }
         ],
-        "fixedpicklimit": 5
+        "cooldowncount": 0,    // adds maps to a cool-down pool after they are first selected, cycled back into operation after this many games (max: 5)
+        "cooldownpool": [      // tracking maps being excluded. 
+          {
+            "map": "AS-Mazon", // map name
+            "cooldown": 3      // increasing cooldown until >= cooldowncount
+          }
+        ],
+        "randomorder": false,  // randomises the final order maps are played
+        "fixedpicklimit": 5    // fixes the amount of maps that are played (best of x)
       },
       "eligibility": "",    // if this is not empty then limit who can sign-up to a Discord role
       "registrations": [    // list of discord IDs registered, whether they have a rating or not - may become redundant in future and built from ratings instead
