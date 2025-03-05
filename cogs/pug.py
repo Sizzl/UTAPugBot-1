@@ -40,7 +40,7 @@ DEFAULT_PICKMODEMAPS = 3 # Fairer for odd numbers (maps are usually odd, so 2nd 
 DEFAULT_GAME_SERVER_REF = 'pugs1'
 DEFAULT_GAME_SERVER_IP = '0.0.0.0'
 DEFAULT_GAME_SERVER_PORT = '7777'
-DEFAUlT_GAME_SERVER_NAME = 'Unknown Server'
+DEFAULT_GAME_SERVER_NAME = 'Unknown Server'
 DEFAULT_POST_SERVER = 'https://utassault.net'
 DEFAULT_POST_TOKEN = 'NoToken'
 DEFAULT_THUMBNAIL_SERVER = '{0}/pugstats/images/maps/'.format(DEFAULT_POST_SERVER)
@@ -65,6 +65,13 @@ DEFAULT_SPECTATOR_PASSWORD = 'pug'
 DEFAULT_NUM_SPECTATORS = 4
 DEFAULT_RED_PASSWORD = RED_PASSWORD_PREFIX + '000'
 DEFAULT_BLUE_PASSWORD = BLUE_PASSWORD_PREFIX + '000'
+
+RATED_CAP_MODE = {
+    0: 'No captains selected',
+    1: 'Captains randomly selected',
+    2: 'Captains preferenced by Discord role',
+    3: 'Self-nominated captains within a time-window'
+}
 
 # Map list:
 #  List of League Assault default maps.
@@ -115,6 +122,7 @@ MAX_PLAYERS_LIMIT = len(PICKMODES[0]) + 2
 PLASEP = '\N{SMALL ORANGE DIAMOND}'
 MODSEP = '\N{SMALL BLUE DIAMOND}'
 OKMSG = '\N{OK HAND SIGN}'
+CAPSIGN = '\N{CROWN}'
 
 DISCORD_MD_CHARS = '*~_`'
 DISCORD_MD_ESCAPE_RE = re.compile('[{}]'.format(DISCORD_MD_CHARS))
@@ -192,6 +200,8 @@ class Players:
     def __init__(self, maxPlayers, ranked: bool, roleRequired: str = ''):
         self.maxPlayers = maxPlayers
         self.players = []
+        self.playerFlags = []
+        self.queuedPlayers = []
         self.ranked = ranked
         self.roleRequired = roleRequired
         self.ratingsData = None
@@ -233,20 +243,31 @@ class Players:
     def playersNeeded(self):
         return self.maxPlayers - self.numPlayers
 
+    @property
+    def playerQueueFull(self):
+        return len(self.queuedPlayers) == self.maxPlayers
+    
     #########################################################################################
     # Functions
     #########################################################################################
-    def addPlayer(self, player):
-        if player not in self and not self.playersFull:
-            self.players.append(player)
-            return True
+    def addPlayer(self, player, flags:str = ''):
+        if flags.lower()[:2] in ['qu','ne']:
+            if player not in self.queuedPlayers and not self.playerQueueFull:
+                self.queuedPlayers.append(player)
+                return True
+        else:
+            if player not in self and not self.playersFull:
+                self.players.append(player)
+                if len(flags):
+                    self.playerFlags.append({player.id: flags})
+                return True
         return False
 
-    def addRankedPlayer(self, player):
+    def addRankedPlayer(self, player, flags:str = ''):
         # Determine eligibility and ratings data present, perform any other checks here
         log.debug('addRankedPlayer({0}) started'.format(player.display_name))
         if self.checkRankedPlayersEligibility([player]):
-            if self.addPlayer(player):
+            if self.addPlayer(player, flags):
                 log.debug('addRankedPlayer({0}) succeeded.'.format(player.display_name))
                 return True
         return False
@@ -254,11 +275,14 @@ class Players:
     def removePlayer(self, player):
         if player in self:
             self.players.remove(player)
+            if player.id in self.playerFlags:
+                self.playerFlags.remove(player.id)
             return True
         return False
 
     def resetPlayers(self):
         self.players = []
+        self.playerFlags = []
 
     def setMaxPlayers(self, numPlayers):
         if (numPlayers < 1 or numPlayers % 2 > 0):
@@ -675,7 +699,7 @@ class GameServer:
         self.gameServerRef = DEFAULT_GAME_SERVER_REF
         self.gameServerIP = DEFAULT_GAME_SERVER_IP
         self.gameServerPort = DEFAULT_GAME_SERVER_PORT
-        self.gameServerName = DEFAUlT_GAME_SERVER_NAME
+        self.gameServerName = DEFAULT_GAME_SERVER_NAME
         self.gameServerState = ''
         self.gameServerOnDemand = False
         self.gameServerOnDemandReady = True
@@ -1419,7 +1443,11 @@ class AssaultPug(PugTeams):
     #########################################################################################
     def format_players(self, players, number: bool = False, mention: bool = False):
         def name(p):
-            return p.mention if mention else display_name(p)
+            if self.ranked and 'capMode' in self.ratings and int(self.ratings['capMode']) > 0:
+                isCap = ' ('+CAPSIGN+')' if (p == self.red.captain or p == self.blue.captain) else ''
+            else:
+                isCap = ''
+            return p.mention+isCap if mention else display_name(p)+isCap
         numberedPlayers = ((i, name(p)) for i, p in enumerate(list(set(players)), 1) if p)
         fmt = '**{0})** {1}' if number else '{1}'
         return PLASEP.join(fmt.format(*x) for x in numberedPlayers)
@@ -1591,6 +1619,15 @@ class AssaultPug(PugTeams):
                 log.debug('setRankedMode({0}) - Checking self.ratings...'.format(rankedMode))
                 if self.ratings is not None:
                     log.debug('setRankedMode({0}) - self.ratings present.'.format(rankedMode))
+                    # Set any missing defaults
+                    if 'capMode' not in self.ratings:
+                        self.ratings['capMode'] = 0
+                    if 'capRole' not in self.ratings:
+                        self.ratings['capRole'] = ''
+                    if 'capWindow' not in self.ratings:
+                        self.ratings['capWindow'] = 0
+                    if 'games' not in self.ratings:
+                        self.ratings['games'] = []
                     # Determine if all players have a ratings entry and remove those who don't or are not eligible
                     if self.ratings['eligibility'] is not None and self.ratings['eligibility'] != '':
                         self.roleRequired = self.ratings['eligibility'] # Requires a specific discord role
@@ -1740,30 +1777,67 @@ class AssaultPug(PugTeams):
                 playerRatings.append(rankedPlayer['ratingvalue'])
                 playerMap[int(rankedPlayer['did'])] = rankedPlayer['ratingvalue']
         log.debug('makeRatedTeams() - playerIDs = {0}; playerRatings = {1}'.format(playerIDs,playerRatings))
-        bestMask = 0
         minDiff = float('inf')
-        for mask in range(4096):
-            if bin(mask).count('1') != 6:
-                continue
-            x, y = 0, 0
-            for i in range(len(playerRatings)):
-                if mask & (1 << i):
-                    x += playerRatings[i]
-                else:
-                    y += playerRatings[i]
-            diff = abs(x - y)
-            if diff < minDiff:
-                minDiff, bestMask = diff, mask
-        rankedRed = [num for i, num in enumerate(playerRatings) if bestMask & (1 << i)]
-        rankedBlue = [num for i, num in enumerate(playerRatings) if not bestMask & (1 << i)]
+        for mask in range(1 << len(playerRatings)):
+            if bin(mask).count('1') == len(playerRatings)/2:
+                x = [playerRatings[i] for i in range(len(playerRatings)) if mask & (1 << i)]
+                y = [playerRatings[i] for i in range(len(playerRatings)) if not mask & (1 << i)]
+                diff = abs(sum(x) - sum(y))
+                if diff < minDiff:
+                    minDiff = diff
+                    rankedRed = x
+                    rankedBlue = y
+        log.debug('makeRatedTeams() masked values: red={0}, blue={1}'.format(rankedRed,rankedBlue))
+        msg = 'Red RP: {0}; Blue RP: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
         # Establish self.red and self.blue
         for p in self.players:
-            if (playerMap[p.id] in rankedRed and p.id not in self.red and p.id not in self.blue):
+            if (playerMap[p.id] in rankedRed and p not in self.red and p not in self.blue):
                 self.red.append(p)
-            if (playerMap[p.id] in rankedBlue and p.id not in self.red and p.id not in self.blue):
+                rankedRed.remove(playerMap[p.id])
+            if (playerMap[p.id] in rankedBlue and p not in self.red and p not in self.blue):
                 self.blue.append(p)
-        msg = 'Red RP: {0}; Blue RP: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
-        log.debug('makeRatedTeams() completed: {0}'.format(msg))
+                rankedBlue.remove(playerMap[p.id])
+        
+        if 'capMode' in self.ratings:
+            redCapPicks = []
+            blueCapPicks = []
+            capMode = self.ratings['capMode']
+            log.debug('makeRatedTeams() - Cap Mode: {0} ({1})'.format(RATED_CAP_MODE[capMode],capMode))
+            if capMode > 2:
+                capMode = 2 # not yet supported, to be added in future as this function would need splitting into two parts
+            if capMode == 2:
+                if 'capRole' in self.ratings and len(self.ratings['capRole']) > 0:
+                    log.debug('makeRatedTeams() - Searching for players in role: {0}'.format(self.ratings['capRole']))
+                    for p in self.players:
+                        for role in p.roles:
+                            if str(role.name).lower() == str(self.ratings['capRole']).lower():
+                                log.debug('makeRatedTeams() - Found joined player {0} in role: {1}'.format(p.display_name, role.name))
+                                if p in self.red:
+                                    log.debug('makeRatedTeams() - Adding {0} to Red captain selection.'.format(p.display_name))
+                                    redCapPicks.append(p)
+                                if p in self.blue:
+                                    log.debug('makeRatedTeams() - Adding {0} to Blue captain selection.'.format(p.display_name))
+                                    blueCapPicks.append(p)
+                if len(redCapPicks) == 0 or len(blueCapPicks) == 0:
+                    capMode = 1 # fall back to random
+            if capMode == 1:
+                if len(redCapPicks) == 0:
+                    redCapPicks = self.red
+                if len(blueCapPicks) == 0:
+                    blueCapPicks = self.blue
+
+            if capMode > 0 and len(redCapPicks) > 0 and len(blueCapPicks) > 0:
+                redCap = random.choice(redCapPicks)
+                self.red.remove(redCap)
+                self.red.insert(0,redCap)
+                log.debug('makeRatedTeams() - Chosen {0} from Red captain selection ({1} = {2}).'.format(redCap.display_name,self.red.index(redCap),self.red.captain))
+                blueCap = random.choice(blueCapPicks)
+                self.blue.remove(blueCap)
+                self.blue.insert(0,blueCap)
+                log.debug('makeRatedTeams() - Chosen {0} from Blue captain selection ({1} = {2}).'.format(blueCap.display_name,self.blue.index(blueCap),self.blue.captain))
+                msg = msg+'\nRed captain: {0}\nBlue captain: {1}'.format(redCap.mention,blueCap.mention)
+
+        log.debug('makeRatedTeams() completed: {0}'.format(msg.replace('\n','; ')))
         return msg
 
 #########################################################################################
@@ -2871,6 +2945,45 @@ class PUG(commands.Cog):
                 await ctx.send('Error - a ranked map limit could not be saved - game mode not found.')
             else:
                 await ctx.send('Error - a ranked map limit could not be saved; check bot logs.')
+        return True
+
+    @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkconf(self, ctx, mode: str, capMode:int = 0, capRole:str = '', capWindow:int = 0):
+        """Configures ranked mode core settings."""
+        if (mode in [None,'']):
+            await ctx.send('A valid ranked mode must be specified.')
+            return True
+        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile,True)
+        if 'rankedgames' in rkData:
+            for x in rkData['rankedgames']:
+                if 'mode' in x and str(x['mode']).upper() == mode.upper():
+                    mode = x['mode']
+                    previousSettings = ''
+                    if 'capMode' in x:
+                        previousSettings = previousSettings+'Captain mode: {0} ({1}); '.format(RATED_CAP_MODE[x['capMode']],x['capMode'])
+                        if 'capWindow' in x and int(x['capMode']) == 3:
+                            previousSettings = previousSettings+'Time window for captain selection: {0}s; '.format(str(x['capWindow']))
+                    if 'capRole' in x and len(x['capRole']) > 0:
+                        previousSettings = previousSettings+'Discord role for captain selection: {0}; '.format(x['capRole'])
+                    x['capMode'] = max(0, min(capMode, 2)) # clamp to 0-2 - future support for mode 3 will be needed
+                    newSettings = 'Captain mode: {0} ({1}); '.format(RATED_CAP_MODE[x['capMode']],x['capMode'])
+                    if capMode == 3:
+                        x['capWindow'] = max(30, min(capWindow, 240)) # clamp to 30-240
+                        newSettings = newSettings+'Time window for captain selection: {0}s; '.format(str(x['capWindow']))
+                    else:
+                        x['capWindow'] = 0
+                    x['capRole'] = capRole
+                    if len(capRole) > 0:
+                        newSettings = 'Discord role for captain selection: {0}; '.format(x['capRole'])
+            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
+                await ctx.send('Ranked game mode {0} configuration updated.\nPrevious settings - {1}\nNew settings - {2}'.format(mode,previousSettings,newSettings))
+                if (self.pugInfo.ranked): # reload data for current ranked mode
+                    self.pugInfo.setRankedMode(self.pugInfo.ranked,True)
+            else:
+                await ctx.send('Error - ranked game config could not be updated; check bot logs.')
         return True
 
     #########################################################################################
