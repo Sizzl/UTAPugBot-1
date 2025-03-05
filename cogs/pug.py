@@ -2950,7 +2950,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkconf(self, ctx, mode: str, capMode:int = 0, capRole:str = '', capWindow:int = 0):
+    async def rkconf(self, ctx, mode: str, capMode:int = 0, capRole: discord.Role=None, capWindow:int = 0):
         """Configures ranked mode core settings."""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
@@ -2975,8 +2975,8 @@ class PUG(commands.Cog):
                         newSettings = newSettings+'Time window for captain selection: {0}s; '.format(str(x['capWindow']))
                     else:
                         x['capWindow'] = 0
-                    x['capRole'] = capRole
-                    if len(capRole) > 0:
+                    if capMode == 2 and capRole is not None:
+                        x['capRole'] = capRole.name
                         newSettings = 'Discord role for captain selection: {0}; '.format(x['capRole'])
             if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
                 await ctx.send('Ranked game mode {0} configuration updated.\nPrevious settings - {1}\nNew settings - {2}'.format(mode,previousSettings,newSettings))
