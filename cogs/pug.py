@@ -1888,8 +1888,8 @@ class AssaultPug(PugTeams):
                         x['games'] = []
                     for g in x['games']:
                         if g['gameref'].upper() == matchCode.upper():
-                            g.scoreRed = redScore
-                            g.scoreBlue = blueScore
+                            g.scorered = redScore
+                            g.scoreblue = blueScore
                             g.completed = hasEnded
                             if (hasEnded):
                                 g.enddate = timeEnded
@@ -1996,6 +1996,7 @@ class PUG(commands.Cog):
             if not self.pugInfo.gameServer.updateServerStatus():
                 log.warn('Cannot contact game server.')
             if self.pugInfo.gameServer.processMatchFinished():
+                self.savePugConfig(self.configFile)
                 await self.activeChannel.send('Match finished. Resetting pug...')
                 if self.pugInfo.resetPug():
                     await self.activeChannel.send(self.pugInfo.format_pug())
