@@ -1898,7 +1898,7 @@ class AssaultPug(PugTeams):
                             rkUpdated = True
                     if rkNewMatch:
                         m = {
-                            'gameRef': matchCode,
+                            'gameref': matchCode,
                             'startdate': timeStarted,
                             'enddate': timeEnded,
                             'completed': hasEnded,
