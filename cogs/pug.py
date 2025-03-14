@@ -1952,14 +1952,12 @@ class AssaultPug(PugTeams):
                         loseCap = match['capred']['id']
                 if 'scoring' in x:
                     scoremode = x['scoring']['mode']
+                    capWinRP = x['scoring']['capWin']
+                    capLoseRP = x['scoring']['capLose']
                     if scoremode == "permap":
-                        capWinRP = x['scoring']['capWin']*winScore
-                        capLoseRP = x['scoring']['capLose']*loseScore
                         winRP = x['scoring']['teamWin']*winScore
                         loseRP = x['scoring']['teamLose']*loseScore
                     else:
-                        capWinRP = x['scoring']['capWin']
-                        capLoseRP = x['scoring']['capLose']
                         winRP = x['scoring']['teamWin']
                         loseRP = x['scoring']['teamLose']
                     for p in x['ratings']:
