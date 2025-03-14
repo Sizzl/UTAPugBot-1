@@ -3155,7 +3155,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkscoreconfig','rkscoreconf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkscoring(self, ctx, mode: str, scoremode: str = 'pergame', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
+    async def rkscoring(self, ctx, mode: str, scoremode: str = 'permap', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
         """Configures ranked mode scoring settings."""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
