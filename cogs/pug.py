@@ -3155,7 +3155,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkscoreconfig','rkscoreconf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkscoring(self, ctx, mode: str, scoremode: str = 'pergame', teamWin: int = 0, teamLose: int = 0, capWin: int = 0, capLose: int = 0, volCapWin: int = 0, volCapLose: int = 0):
+    async def rkscoring(self, ctx, mode: str, scoremode: str = 'pergame', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
         """Configures ranked mode scoring settings."""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
@@ -3181,12 +3181,12 @@ class PUG(commands.Cog):
                                 previousSettings = previousSettings+', Losing Voluntary Captain: {0}'.format(x['scoring']['volCapLose'])
                     x['scoring'] = {
                         'mode': scoremode,
-                        'teamWin': max(0, teamWin),
-                        'teamLose': teamLose,
-                        'capWin': max(0, capWin),
-                        'capLose': capLose,
-                        'volCapWin': max(0, volCapWin),
-                        'volCapLose': volCapLose
+                        'teamWin': max(0, teamwin),
+                        'teamLose': teamlose,
+                        'capWin': max(0, capwin),
+                        'capLose': caplose,
+                        'volCapWin': max(0, volcapwin),
+                        'volCapLose': volcaplose
                     }
                     newSettings = 'Scoring mode: {0}; Points - Winning team: {1}, Losing Team: {2}, Winning Cap: {3}, Losing Cap: {4}'.format(x['scoring']['mode'],x['scoring']['teamWin'],x['scoring']['teamLose'],x['scoring']['capWin'],x['scoring']['capLose'])
                     if 'capMode' in x and x['capMode'] == 3:
