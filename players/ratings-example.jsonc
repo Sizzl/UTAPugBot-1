@@ -33,6 +33,14 @@
           "teamblue": [   // list of discord player IDs for blue team
             124605651006521344
           ],
+          "capred": {
+            "id": 189485300001538048,
+            "volunteered": false
+          },
+          "capblue": {
+            "id": 124605651006521344,
+            "volunteered": false
+          },
           "rpred":4000,   // rank power for red team
           "rpblue":4000,  // rank power for blue team
           "scorered": 0,  // final score for red team

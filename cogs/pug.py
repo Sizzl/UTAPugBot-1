@@ -250,7 +250,7 @@ class Players:
     #########################################################################################
     # Functions
     #########################################################################################
-    def addPlayer(self, player, flags:str = ''):
+    def addPlayer(self, player, flags: str = ''):
         if flags.lower()[:2] in ['qu','ne']:
             if player not in self.queuedPlayers and not self.playerQueueFull:
                 self.queuedPlayers.append(player)
@@ -263,7 +263,7 @@ class Players:
                 return True
         return False
 
-    def addRankedPlayer(self, player, flags:str = ''):
+    def addRankedPlayer(self, player, flags: str = ''):
         # Determine eligibility and ratings data present, perform any other checks here
         log.debug('addRankedPlayer({0}) started'.format(player.display_name))
         if self.checkRankedPlayersEligibility([player]):
@@ -480,11 +480,9 @@ class PugMaps:
                 for m in self.mapListWeighting:
                     if (int(m['order']) == (i+1) or int(m['order']) == 0) and m['map'] not in self.maps:
                         if 'weight' in m and m['weight'] > 0:
-                            log.debug('autoPickRankedMaps() - adding weighted pick to opts - {0} x {1}'.format(m['map'],m['weight']))   
                             for x in range(m['weight']):
                                 opts.append(m['map'])
                         else:
-                            log.debug('autoPickRankedMaps() - adding unweighted pick to opts - {0}'.format(m['map']))        
                             opts.append(m['map'])
                 if len(opts):
                     pick = random.choice(opts)
@@ -709,6 +707,7 @@ class GameServer:
         self.spectatorPassword = DEFAULT_SPECTATOR_PASSWORD
         self.numSpectators = DEFAULT_NUM_SPECTATORS
         self.matchCode = ''
+        self.lastMatchCode = ''
 
         # We keep a track of the server's match status and also if we have used "endMatch" since the last server setup, which
         # can be used to override the updating matchInProgress when a match has been ended since the last server setup.
@@ -751,14 +750,14 @@ class GameServer:
                     if 'authtoken' in setupapi:
                         self.authtoken = info['setupapi']['authtoken']
                 else:
-                    log.warn('setupapi not found in config file.')
+                    log.warning('setupapi not found in config file.')
                 if 'thumbnailserver' in info:
                     self.thumbnailServer = info['thumbnailserver']
                 if 'maplist' in info and len(info['maplist']):
                     log.info('Loaded {0} maps from config.json'.format(len(info['maplist'])))
                     self.configMaps = info['maplist']
                 else:
-                    log.warn('Maplist not found in config file.')
+                    log.warning('Maplist not found in config file.')
 
                 # Iterate through local cache of servers, and set the default if present
                 if 'serverlist' in info and len(info['serverlist']):
@@ -771,7 +770,7 @@ class GameServer:
                         if 'serverdefault' in server.keys():
                             self.gameServerRef = server['serverref']
                 else:
-                    log.warn('Serverlist not found in config file.')
+                    log.warning('Serverlist not found in config file.')
                 if 'serverrotation' in info and len(info['serverrotation']):
                     self.gameServerRotation = []
                     for x in info['serverrotation']:
@@ -1293,9 +1292,9 @@ class GameServer:
         if not self.updateServerStatus():
             return False
         # Cache last scores from server status
-        log.debug('endMatch ({0}): redScore = {1} - blueScore = {2}'.format(self.endMatchPerformed, self.redScore, self.blueScore))
+        log.debug('endMatch (viaReset={0}): Ended = {1}. matchCode = {2}, redScore = {3} - blueScore = {4}'.format(viaReset, self.endMatchPerformed, self.matchCode, self.redScore, self.blueScore))
         if self.endMatchPerformed is True:
-            if self.parent.storeLastPug('**Score:** Red {0} - {1} Blue'.format(self.redScore, self.blueScore), self.redScore, self.blueScore, self.matchCode, viaReset):
+            if self.parent.storeLastPug('**Score:** Red {0} - {1} Blue'.format(self.redScore, self.blueScore), self.redScore, self.blueScore, self.lastMatchCode, viaReset):
                 log.info('Pug reset; last scores appended successfully.')
             else:
                 log.info('Pug reset; last scores did not append successfully.')
@@ -1309,6 +1308,7 @@ class GameServer:
             if self.lastSetupResult == 'Completed':
                 self.matchInProgress = False
                 self.endMatchPerformed = True
+                self.lastMatchCode = self.matchCode
                 self.matchCode = ''
                 return True
 
@@ -1357,7 +1357,7 @@ class GameServer:
             await ctx.send('{0} is ready for action.'.format(self.parent.gameServer.gameServerName))
             self.updateOnDemandServerState.cancel()
         else:
-            log.warn('Server not yet online.')
+            log.warning('Server not yet online.')
     
     @updateOnDemandServerState.after_loop
     async def on_updateOnDemandServerState_cancel(self):
@@ -1500,9 +1500,10 @@ class AssaultPug(PugTeams):
 
             fmt = ['Match in progress ({} ago):'.format(getDuration(self.lastPugTimeStarted, datetime.now()))]
             fmt.append(self.format_teams(mention=False))
+            if self.ranked:
+                fmt.append('Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower)))
             fmt.append('Maps ({}):\n{}'.format(self.maps.maxMaps, self.maps.format_current_maplist))
-            fmt.append('Mode: ' + self.mode)
-            fmt.append(self.gameServer.format_game_server)
+            fmt.append('Mode: ' + self.mode+' @ '+self.gameServer.format_game_server)
             fmt.append(self.gameServer.format_spectator_password)
             return '\n'.join(fmt)
         return None
@@ -1564,7 +1565,7 @@ class AssaultPug(PugTeams):
                     time.sleep(5)
                 else:
                     self.pugLocked = True
-                    self.storeLastPug()
+                    self.storeLastPug(matchCode=self.gameServer.matchCode)
                     return True
             self.pugTempLocked = False
         return False
@@ -1576,11 +1577,13 @@ class AssaultPug(PugTeams):
                 matchCode = self.gameServer.matchCode
             fmt.append('Last **{}** ({} ago)'.format(self.desc, '{}'))
             fmt.append(self.format_teams())
+            if self.ranked:
+                fmt.append('Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower)))
             fmt.append('Maps ({}):\n{}'.format(self.maps.maxMaps, self.maps.format_current_maplist))
             self.lastPugStr = '\n'.join(fmt)
             self.lastPugTimeStarted = datetime.now()
             if self.ranked:
-                log.debug('storeRankedPug() - Calling via matchReady - storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False)))
+                log.debug('storeLastPug(viaReset={5}) - Calling via matchReady - storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False), str(viaReset)))
                 if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), False):
                     log.debug('storeRankedPug() - Stored game successfully via storeLastPug matchReady')
                 else:
@@ -1592,7 +1595,7 @@ class AssaultPug(PugTeams):
             fmt.append(appendstr)
             self.lastPugStr = '\n'.join(fmt)
             if self.ranked:
-                log.debug('storeRankedPug() - Calling storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False)))
+                log.debug('storeLastPug(viaReset={5}) - Calling storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False), str(viaReset)))
                 if viaReset: # do not track as a ranked game if reset before completion
                     if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), False):
                         log.debug('storeRankedPug() - Stored game successfully via storeLastPug (update, via reset)')
@@ -1606,7 +1609,7 @@ class AssaultPug(PugTeams):
             return True
         return False
 
-    def resetPug(self):
+    def resetPug(self, manualReset = False):
         self.pugTempLocked = True
         self.maps.resetMaps()
         self.fullPugTeamReset()
@@ -1614,7 +1617,7 @@ class AssaultPug(PugTeams):
         self.bluePower = 0
         if self.pugLocked or (self.gameServer and self.gameServer.matchInProgress):
         # Is this a good idea? Might get abused.
-            self.gameServer.endMatch(True)
+            self.gameServer.endMatch(manualReset)
         self.gameServer.utQueryReporterActive = False
         self.gameServer.utQueryStatsActive = False
         self.pugTempLocked = False
@@ -1718,27 +1721,21 @@ class AssaultPug(PugTeams):
             return False, ' '.join(outStr)
 
     def loadPugRatings(self, ratingsFile, returnDataOnly: bool = False):
+        """Loads the ranked game ratings data from the JSON configuration file"""
         self.ratings = None # save before load?
         log.debug('loadPugRatings({0}) started'.format(ratingsFile))
         with open(ratingsFile) as f:
-            log.debug('loadPugRatings({0}) opened ratings file'.format(ratingsFile))
             ratingsData = json.load(f)
-            log.debug('loadPugRatings({0}) loaded ratingsData JSON object'.format(ratingsFile))
             if ratingsData:
-                log.debug('loadPugRatings({0}) ratingsData is a valid JSON object'.format(ratingsFile))
                 if returnDataOnly: # For in-line updates
-                    log.debug('loadPugRatings({0}) returning data directly to caller.'.format(ratingsFile))
                     return ratingsData 
                 if 'rankedgames' in ratingsData:
                     # Find the mode and specific ratings data
                     for gamedata in ratingsData['rankedgames']:
-                        log.debug('loadPugRatings({0}) checking for ratings mode self.mode={1} vs. gamedata.mode={2}'.format(ratingsFile,self.mode,gamedata['mode']))
                         if str(gamedata['mode']).upper() == self.mode.upper():
                             self.ratings = gamedata
                             log.debug('loadPugRatings({0}) stored ratings data for {1}'.format(ratingsFile,self.mode))
                             return True
-                        else:
-                            log.debug('loadPugRatings({0}) ratings mode did not match - self.mode={1} vs. gamedata.mode={2}'.format(ratingsFile,self.mode,gamedata['mode']))
                 else:
                     # Generate an empty ranked schema with the default mode
                     rkData = {
@@ -1760,14 +1757,13 @@ class AssaultPug(PugTeams):
         return False
         
     def savePugRatings(self, ratingsFile, ratingsUpdates = None):
+        """Saves the ranked game ratings data to the JSON configuration file"""
         log.debug('savePugRatings({0}) started'.format(ratingsFile))
         with open(ratingsFile) as fr:
             ratingsData = json.load(fr)
         if ratingsData not in [None,''] or ratingsUpdates not in [None,'']:
             with open(ratingsFile,'w') as fw:
-                log.debug('savePugRatings({0}) opened ratings file for writing'.format(ratingsFile))
                 # Update the specific ratings data section before dumping it
-                log.debug('savePugRatings({0}) loaded ratingsData JSON object'.format(ratingsFile))
                 if ratingsUpdates not in [None,'']:
                     if 'rankedgames' in ratingsUpdates and ratingsUpdates['rankedgames'] is not None:
                         log.debug('savePugRatings({0}) updating ratingsData directly from provided ratingsUpdates.'.format(ratingsFile))
@@ -1777,7 +1773,6 @@ class AssaultPug(PugTeams):
                         if ratingsData['rankedgames'] is not None:
                             for gamedata in ratingsData['rankedgames']:
                                 if gamedata['mode'] == self.ratings['mode']:
-                                    log.debug('savePugRatings({0}) updating {1} with loaded values'.format(ratingsFile,self.ratings['mode']))
                                     gamedata = self.ratings
                         else:
                             log.debug('savePugRatings({0}) adding new mode data for {1}'.format(ratingsFile,self.ratings['mode']))
@@ -1788,6 +1783,7 @@ class AssaultPug(PugTeams):
         return True
 
     def makeRatedTeams(self):
+        """Uses bitmask comparison bin-sorting to work out a balanced set of teams"""
         log.debug('makeRatedTeams() - Beginning rated teams sorting...')
         if (self.teamsFull):
             log.debug('makeRatedTeams() - Teams already filled.')
@@ -1812,7 +1808,9 @@ class AssaultPug(PugTeams):
                     rankedRed = x
                     rankedBlue = y
         log.debug('makeRatedTeams() masked values: red={0}, blue={1}'.format(rankedRed,rankedBlue))
-        msg = 'Red RP: {0}; Blue RP: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
+        self.redPower = sum(rankedRed)
+        self.bluePower = sum(rankedBlue)
+        msg = 'Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower))
         # Establish self.red and self.blue
         for p in self.players:
             if (playerMap[p.id] in rankedRed and p not in self.red and p not in self.blue):
@@ -1821,27 +1819,20 @@ class AssaultPug(PugTeams):
             if (playerMap[p.id] in rankedBlue and p not in self.red and p not in self.blue):
                 self.blue.append(p)
                 rankedBlue.remove(playerMap[p.id])
-        self.redPower = sum(rankedRed)
-        self.bluePower = sum(rankedBlue)
         if 'capMode' in self.ratings:
             redCapPicks = []
             blueCapPicks = []
             capMode = self.ratings['capMode']
-            log.debug('makeRatedTeams() - Cap Mode: {0} ({1})'.format(RATED_CAP_MODE[capMode],capMode))
             if capMode > 2:
                 capMode = 2 # not yet supported, to be added in future as this function would need splitting into two parts
             if capMode == 2:
                 if 'capRole' in self.ratings and len(self.ratings['capRole']) > 0:
-                    log.debug('makeRatedTeams() - Searching for players in role: {0}'.format(self.ratings['capRole']))
                     for p in self.players:
                         for role in p.roles:
                             if str(role.name).lower() == str(self.ratings['capRole']).lower():
-                                log.debug('makeRatedTeams() - Found joined player {0} in role: {1}'.format(p.display_name, role.name))
                                 if p in self.red:
-                                    log.debug('makeRatedTeams() - Adding {0} to Red captain selection.'.format(p.display_name))
                                     redCapPicks.append(p)
                                 if p in self.blue:
-                                    log.debug('makeRatedTeams() - Adding {0} to Blue captain selection.'.format(p.display_name))
                                     blueCapPicks.append(p)
                 if len(redCapPicks) == 0 or len(blueCapPicks) == 0:
                     capMode = 1 # fall back to random
@@ -1855,17 +1846,16 @@ class AssaultPug(PugTeams):
                 redCap = random.choice(redCapPicks)
                 self.red.remove(redCap)
                 self.red.insert(0,redCap)
-                log.debug('makeRatedTeams() - Chosen {0} from Red captain selection ({1} = {2}).'.format(redCap.display_name,self.red.index(redCap),self.red.captain))
                 blueCap = random.choice(blueCapPicks)
                 self.blue.remove(blueCap)
                 self.blue.insert(0,blueCap)
-                log.debug('makeRatedTeams() - Chosen {0} from Blue captain selection ({1} = {2}).'.format(blueCap.display_name,self.blue.index(blueCap),self.blue.captain))
                 msg = msg+'\nRed captain: {0}\nBlue captain: {1}'.format(redCap.mention,blueCap.mention)
 
         log.debug('makeRatedTeams() completed: {0}'.format(msg.replace('\n','; ')))
         return msg
 
     def storeRankedPug(self, mode: str = '', matchCode: str = '', redScore: int = 0, blueScore: int = 0, timeStarted: str = '', hasEnded: bool = False):
+        """Stores ranked pug match data and handles end-game scenarios"""
         if mode in [None, ''] and self.ranked:
             mode = self.mode
         if matchCode in [None,'']:
@@ -1888,13 +1878,19 @@ class AssaultPug(PugTeams):
                         x['games'] = []
                     for g in x['games']:
                         if g['gameref'].upper() == matchCode.upper():
-                            g.scorered = redScore
-                            g.scoreblue = blueScore
-                            g.completed = hasEnded
-                            if (hasEnded):
-                                g.enddate = timeEnded
-                            g.completed = hasEnded
                             rkNewMatch = False
+                            if self.redPower > 0:
+                                g['rpred'] = self.redPower
+                            if self.bluePower > 0:
+                                g['rpblue'] = self.bluePower
+                            g['scorered'] = redScore
+                            g['scoreblue'] = blueScore
+                            g['completed'] = hasEnded
+                            if (hasEnded):
+                                g['enddate'] = timeEnded
+                            g['completed'] = hasEnded
+                            if hasEnded:
+                                rkData = self.applyRankedScoring(rkData, mode, g)
                             rkUpdated = True
                     if rkNewMatch:
                         m = {
@@ -1910,17 +1906,87 @@ class AssaultPug(PugTeams):
                             'scorered': redScore,
                             'scoreblue': blueScore
                         }
+                        m['capred'] = {
+                            'id': m['teamred'][0],
+                            'volunteered': False # adjust when capmode 3 is supported
+                        }
+                        m['capblue'] ={
+                            'id': m['teamblue'][0],
+                            'volunteered': False # adjust when capmode 3 is supported
+                        }
                         x['games'].append(m)
+                        if hasEnded:
+                            rkData = self.applyRankedScoring(rkData, mode, m)
                         rkUpdated = True
         if rkUpdated:
             if self.savePugRatings(self.ratingsFile, rkData):
                 if (self.ranked):
                     self.setRankedMode(self.ranked, True)
-            else:
-                msg = 'Error - rank game data could not be saved; check bot logs.'
         return True
 
+    def applyRankedScoring(self, rkData, mode, match):
+        """Searches for the given match code and applies given scoring logic to players"""
+        # TO-DO Add voluntary captain scoring when capmode 3 is supported
+        winners = []
+        losers = []
+        winCap = 0
+        loseCap = 0
+        winScore = 0
+        loseScore = 0
+        if 'rankedgames' in rkData:
+            for x in rkData['rankedgames']:
+                if 'mode' in x and str(x['mode']).upper() == mode.upper():
+                    if match['scorered'] > match['scoreblue']:
+                        winners = match['teamred']
+                        losers = match['teamblue']
+                        winScore = match['scorered']
+                        loseScore = match['scoreblue']
+                        winCap = match['capred']['id']
+                        loseCap = match['capblue']['id']
+                    elif match['scoreblue'] > match['scorered']:
+                        winners = match['teamblue']
+                        losers = match['teamred']
+                        winScore = match['scoreblue']
+                        loseScore = match['scorered']
+                        winCap = match['capblue']['id']
+                        loseCap = match['capred']['id']
+                if 'scoring' in x:
+                    scoremode = x['scoring']['mode']
+                    if scoremode == "permap":
+                        capWinRP = x['scoring']['capWin']*winScore
+                        capLoseRP = x['scoring']['capLose']*loseScore
+                        winRP = x['scoring']['teamWin']*winScore
+                        loseRP = x['scoring']['teamLose']*loseScore
+                    else:
+                        capWinRP = x['scoring']['capWin']
+                        capLoseRP = x['scoring']['capLose']
+                        winRP = x['scoring']['teamWin']
+                        loseRP = x['scoring']['teamLose']
+                    for p in x['ratings']:
+                        if p['lastgameref'] != match['gameref']:
+                            if p['did'] in winners or p['did'] in losers:
+                                p['ratingprevious'] = p['ratingvalue']
+                                if 'ratinghistory' not in p:
+                                    p['ratinghistory'] = []
+                                if p['ratinghistory'] in [None,'']:
+                                    p['ratinghistory'] = []
+                                p['ratinghistory'].append(p['ratingvalue'])
+                                if 'ratinghistory' in p and len(p['ratinghistory']) > 30:
+                                     p['ratinghistory'][:] = p['ratinghistory'][-30:]
+                                p['lastgamedate'] = match['startdate']
+                                p['lastgameref'] = match['gameref']
+                            if p['did'] in winners:
+                                p['ratingvalue'] = p['ratingvalue']+winRP
+                                if p['did'] == winCap:
+                                    p['ratingvalue'] = p['ratingvalue']+capWinRP
+                            elif p['did'] in losers:
+                                p['ratingvalue'] = p['ratingvalue']+loseRP
+                                if p['did'] == loseCap:
+                                    p['ratingvalue'] = p['ratingvalue']+capLoseRP
+        return rkData
+
     def returnPIDs(self, players):
+        """Returns a list of Discord Player IDs (PIDs)"""
         pids = []
         for p in players: pids.append(p.id)
         return pids
@@ -1994,10 +2060,15 @@ class PUG(commands.Cog):
         if self.pugInfo.pugLocked:
             log.info('Updating game server [pugLocked=True]..')
             if not self.pugInfo.gameServer.updateServerStatus():
-                log.warn('Cannot contact game server.')
+                log.warning('Cannot contact game server.')
             if self.pugInfo.gameServer.processMatchFinished():
                 self.savePugConfig(self.configFile)
-                await self.activeChannel.send('Match finished. Resetting pug...')
+                msg = 'Match finished. Resetting pug'
+                if (self.pugInfo.ranked):
+                    msg = msg+' and updating player RP.'
+                else:
+                    msg = msg+'...'
+                await self.activeChannel.send(msg)
                 if self.pugInfo.resetPug():
                     await self.activeChannel.send(self.pugInfo.format_pug())
                     log.info('Match over.')
@@ -2089,7 +2160,7 @@ class PUG(commands.Cog):
                                     except:
                                         self.pugInfo.lastPugTimeStarted = None
                     else:
-                        log.warn('No active channel id found in config file.')
+                        log.warning('No active channel id found in config file.')
                 if 'pug' in info and 'reporterchannelid' in info['pug']:
                     channelID = info['pug']['reporterchannelid']
                     channel = discord.Client.get_channel(self.bot,channelID)
@@ -2301,7 +2372,7 @@ class PUG(commands.Cog):
         if not self.isActiveChannel(ctx):
             return False
         if warn and self.pugInfo.pugLocked:
-            log.warn('Raising PugIsInProgress')
+            log.warning('Raising PugIsInProgress')
             raise PugIsInProgress('Pug In Progress')
         return not self.pugInfo.pugLocked
     
@@ -2579,9 +2650,13 @@ class PUG(commands.Cog):
                                 r['dlastnick'] = player.display_name
                                 r['ratingdate'] = datetime.now().isoformat()
                                 if 'ratinghistory' in r:
-                                    list(r['ratinghistory']).insert(0, r['ratingvalue'])
+                                    if r['ratinghistory'] in [None,'']:
+                                        r['ratinghistory'] = []
                                 else:
-                                    r['ratinghistory'] = list().append(['ratingvalue'])
+                                    r['ratinghistory'] = []
+                                r['ratinghistory'].append(r['ratingvalue'])
+                                if len(r['ratinghistory']) > 30:
+                                     r['ratinghistory'][:] = r['ratinghistory'][-30:]
                                 r['ratingprevious'] = r['ratingvalue']
                                 r['ratingvalue'] = rating
                                 r['lastgamedate'] = ''
@@ -2595,7 +2670,7 @@ class PUG(commands.Cog):
                                 "ratingdate": datetime.now().isoformat(),
                                 "ratingprevious": 0,
                                 "ratingvalue": rating,
-                                "ratinghistory": list(),
+                                "ratinghistory": [],
                                 "lastgamedate": "",
                                 "lastgameref": ""
                             })
@@ -3041,7 +3116,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkconf(self, ctx, mode: str, capmode:int = 0, role: discord.Role=None, window:int = 0):
+    async def rkconf(self, ctx, mode: str, capmode: int = 0, role: discord.Role=None, window: int = 0):
         """Configures ranked mode core settings."""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
@@ -3075,6 +3150,57 @@ class PUG(commands.Cog):
                     self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
             else:
                 await ctx.send('Error - ranked game config could not be updated; check bot logs.')
+        return True
+
+    @commands.hybrid_command(aliases=['rkscoreconfig','rkscoreconf'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkscoring(self, ctx, mode: str, scoremode: str = 'pergame', teamWin: int = 0, teamLose: int = 0, capWin: int = 0, capLose: int = 0, volCapWin: int = 0, volCapLose: int = 0):
+        """Configures ranked mode scoring settings."""
+        if (mode in [None,'']):
+            await ctx.send('A valid ranked mode must be specified.')
+            return True
+        if (scoremode.lower() not in ['permap','pergame']):
+            await ctx.send('Settings not saved: Score Mode must be either: "permap" or "pergame".')
+            return True
+        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        rkUpdate = False
+        if 'rankedgames' in rkData:
+            for x in rkData['rankedgames']:
+                if 'mode' in x and str(x['mode']).upper() == mode.upper():
+                    mode = x['mode']
+                    previousSettings = ''
+                    if 'scoring' in x:
+                        if 'mode' in x['scoring'] and 'teamWin' in x['scoring'] and 'teamLose' in x['scoring'] and 'capWin' in x['scoring'] and 'capLose' in x['scoring']:
+                            previousSettings = 'Scoring mode: {0}; Points - Winning team: {1}, Losing Team: {2}, Winning Cap: {3}, Losing Cap: {4}'.format(x['scoring']['mode'],x['scoring']['teamWin'],x['scoring']['teamLose'],x['scoring']['capWin'],x['scoring']['capLose'])
+                        if 'capMode' in x and x['capMode'] == 3:
+                            if 'volCapWin' in x['scoring'] and (x['scoring']['volCapWin']) > 0:
+                                previousSettings = previousSettings+', Winning Voluntary Captain: {0}'.format(x['scoring']['volCapWin'])
+                            if 'volCapLose' in x['scoring'] and (x['scoring']['volCapLose']) != 0:
+                                previousSettings = previousSettings+', Losing Voluntary Captain: {0}'.format(x['scoring']['volCapLose'])
+                    x['scoring'] = {
+                        'mode': scoremode,
+                        'teamWin': max(0, teamWin),
+                        'teamLose': teamLose,
+                        'capWin': max(0, capWin),
+                        'capLose': capLose,
+                        'volCapWin': max(0, volCapWin),
+                        'volCapLose': volCapLose
+                    }
+                    newSettings = 'Scoring mode: {0}; Points - Winning team: {1}, Losing Team: {2}, Winning Cap: {3}, Losing Cap: {4}'.format(x['scoring']['mode'],x['scoring']['teamWin'],x['scoring']['teamLose'],x['scoring']['capWin'],x['scoring']['capLose'])
+                    if 'capMode' in x and x['capMode'] == 3:
+                        newSettings = newSettings+', Winning Voluntary Captain: {0}, Losing Voluntary Captain: {1}'.format(x['scoring']['volCapWin'],x['scoring']['volCapLose'])
+                    rkUpdate = True
+        if rkUpdate == True:
+            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
+                await ctx.send('Ranked game mode {0} configuration updated.\nPrevious settings - {1}\nNew settings - {2}'.format(mode,previousSettings,newSettings))
+                if (self.pugInfo.ranked): # reload data for current ranked mode
+                        self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+                else:
+                    await ctx.send('Error - ranked game config could not be updated; check bot logs.')
+        else:
+            await ctx.send('Error - ranked mode not found, or no ranked configuration exists.')
         return True
 
     #########################################################################################
@@ -3224,7 +3350,7 @@ class PUG(commands.Cog):
                                 for ip in dns.resolver.resolve(servermatch['dns'], 'A'):
                                     serverinfo['ip'] = ip.address
                             except:
-                                log.warn('DNS lookup failure for {0}'.format(serveraddr))
+                                log.warning('DNS lookup failure for {0}'.format(serveraddr))
                             if 'port' in servermatch.groupdict():
                                 serverinfo['game_port'] = int(servermatch.groupdict()['port'])
                             else:
@@ -3344,7 +3470,7 @@ class PUG(commands.Cog):
                 reset = True
         if reset:
             await ctx.send('Removing all signed players: {}'.format(self.pugInfo.format_all_players(number=False, mention=True)))
-            if self.pugInfo.resetPug():
+            if self.pugInfo.resetPug(True):
                 await ctx.send('Pug Reset: {}'.format(self.pugInfo.format_pug_short))
             else:
                 await ctx.send('Reset failed. Please, try again or inform an admin.')
