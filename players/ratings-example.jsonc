@@ -247,7 +247,14 @@
           "ratingdate": "2025-02-14T13:37:00.0000000+00:00", // date stamp rating was set
           "ratingvalue": 400,        // current rating value
           "ratingprevious": 0,       // previous rating, 0 if this is the first entry for a player
-          "ratinghistory":[],        // last 30 ratings as a list
+          "ratinghistory":[          // last 30 ratings as a list of objects
+            {
+              "matchref":"random-string/admin-set",
+              "matchdate":"2025-02-14T13:37:00.0000000+00:00",
+              "ratingbefore":0,
+              "ratingafter":3
+            }
+          ],
           "lastgamedate": "",        // last game date - if empty, then player has just been registered with a rating
           "lastgameref": ""          // game ref from API
         },

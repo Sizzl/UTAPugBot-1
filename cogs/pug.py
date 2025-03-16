@@ -1924,7 +1924,7 @@ class AssaultPug(PugTeams):
                     self.setRankedMode(self.ranked, True)
         return True
 
-    def applyRankedScoring(self, rkData, mode, match):
+    def applyRankedScoring(self, rkData: object, mode: str, match: object, void: bool = False):
         """Searches for the given match code and applies given scoring logic to players"""
         # TO-DO Add voluntary captain scoring when capmode 3 is supported
         winners = []
@@ -1950,7 +1950,13 @@ class AssaultPug(PugTeams):
                         loseScore = match['scorered']
                         winCap = match['capblue']['id']
                         loseCap = match['capred']['id']
-                if 'scoring' in x:
+                if void:
+                    for p in x['ratings']:
+                        if p['did'] in winners or p['did'] in losers:
+                            # To-Do: Run through ratings by date and re-work out winners and losers to adjust points
+                            p['ratingvalue'] = p['ratingprevious']
+                    match['completed'] = False
+                elif 'scoring' in x:
                     scoremode = x['scoring']['mode']
                     capWinRP = x['scoring']['capWin']
                     capLoseRP = x['scoring']['capLose']
@@ -1964,23 +1970,28 @@ class AssaultPug(PugTeams):
                         if p['lastgameref'] != match['gameref']:
                             if p['did'] in winners or p['did'] in losers:
                                 p['ratingprevious'] = p['ratingvalue']
+                                if p['did'] in winners:
+                                    p['ratingvalue'] = p['ratingvalue']+winRP
+                                    if p['did'] == winCap:
+                                        p['ratingvalue'] = p['ratingvalue']+capWinRP
+                                elif p['did'] in losers:
+                                    p['ratingvalue'] = p['ratingvalue']+loseRP
+                                    if p['did'] == loseCap:
+                                        p['ratingvalue'] = p['ratingvalue']+capLoseRP
                                 if 'ratinghistory' not in p:
                                     p['ratinghistory'] = []
                                 if p['ratinghistory'] in [None,'']:
                                     p['ratinghistory'] = []
-                                p['ratinghistory'].append(p['ratingvalue'])
+                                p['ratinghistory'].append({
+                                    'matchref': p['lastgameref'],
+                                    'matchdate': p['lastgamedate'],
+                                    'ratingbefore': p['ratingprevious'],
+                                    'ratingafter': p['ratingvalue']
+                                })
                                 if 'ratinghistory' in p and len(p['ratinghistory']) > 30:
                                      p['ratinghistory'][:] = p['ratinghistory'][-30:]
                                 p['lastgamedate'] = match['startdate']
                                 p['lastgameref'] = match['gameref']
-                            if p['did'] in winners:
-                                p['ratingvalue'] = p['ratingvalue']+winRP
-                                if p['did'] == winCap:
-                                    p['ratingvalue'] = p['ratingvalue']+capWinRP
-                            elif p['did'] in losers:
-                                p['ratingvalue'] = p['ratingvalue']+loseRP
-                                if p['did'] == loseCap:
-                                    p['ratingvalue'] = p['ratingvalue']+capLoseRP
         return rkData
 
     def returnPIDs(self, players):
@@ -2439,7 +2450,9 @@ class PUG(commands.Cog):
                     if bReportScoreLine:
                         # Defer a scoreline report to the next cycle of this function by disabling the infrequent stats embed
                         self.pugInfo.gameServer.utQueryStatsActive = False
-                        
+            elif 'code' in self.pugInfo.gameServer.utQueryData and self.pugInfo.gameServer.utQueryData['code'] == 408 and self.pugInfo.pugLocked == False:
+                self.pugInfo.gameServer.utQueryStatsActive = False
+                self.pugInfo.gameServer.utQueryReporterActive = False
         return True
 
     async def queryServerStats(self, cacheonly: bool=False):
@@ -2652,7 +2665,12 @@ class PUG(commands.Cog):
                                         r['ratinghistory'] = []
                                 else:
                                     r['ratinghistory'] = []
-                                r['ratinghistory'].append(r['ratingvalue'])
+                                r['ratinghistory'].append({
+                                    'matchref': 'admin-set',
+                                    'matchdate': r['ratingdate'],
+                                    'ratingbefore': r['ratingvalue'],
+                                    'ratingafter': rating
+                                })
                                 if len(r['ratinghistory']) > 30:
                                      r['ratinghistory'][:] = r['ratinghistory'][-30:]
                                 r['ratingprevious'] = r['ratingvalue']
@@ -2663,14 +2681,14 @@ class PUG(commands.Cog):
                         if rkUpdate == False: # new entry required
                             log.debug('{0}({1},{2},{3},{4}) - adding new rank data for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
                             x['ratings'].append({
-                                "did": player.id,
-                                "dlastnick": player.display_name,
-                                "ratingdate": datetime.now().isoformat(),
-                                "ratingprevious": 0,
-                                "ratingvalue": rating,
-                                "ratinghistory": [],
-                                "lastgamedate": "",
-                                "lastgameref": ""
+                                'did': player.id,
+                                'dlastnick': player.display_name,
+                                'ratingdate': datetime.now().isoformat(),
+                                'ratingprevious': 0,
+                                'ratingvalue': rating,
+                                'ratinghistory': [],
+                                'lastgamedate': '',
+                                'lastgameref': ''
                             })
                         msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,player.display_name,player.id,mode)
                     elif (action == 'rkdel'):
@@ -2973,14 +2991,14 @@ class PUG(commands.Cog):
     @commands.command(aliases=['clearmaplist'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkclearmaps(self, ctx, mode: str, force: bool = False):
+    async def rkclearmaps(self, ctx, mode: str, force):
         """Clears all available maps from a ranked mode maplist. Parameters: GameMode [force]"""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified to clear maps.')
             return True
         if self.pugInfo.pugLocked and self.pugInfo.ranked and force != 'force':
-            await ctx.send('A ranked match is already underway at {0} [{1},{2},{3}]'.format(self.pugInfo.gameServer.format_gameServerURL,self.pugInfo.pugLocked,self.pugInfo.ranked,force))
-            await ctx.send('Use a "force" suffix to this command to forcefully clear maps while a match is in progress.')
+            await ctx.send('Maps could not be cleared - a ranked match is already underway at {0} [{1},{2},{3}]'.format(self.pugInfo.gameServer.format_gameServerURL,self.pugInfo.pugLocked,self.pugInfo.ranked,force))
+            # await ctx.send('Use a "force" suffix to this command to forcefully clear maps while a match is in progress.')
         else:
             # Save then load the current ratings data before manipulating and saving again
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
@@ -3017,7 +3035,7 @@ class PUG(commands.Cog):
             await ctx.send('Provide one or more maps in the format: MapName1 MapName2:Order:Weight\nOptional parameters - **Order** represents the pick order (0 is any order) and **Weight** will apply a multiplier on chances of being picked - higher weight = higher chance of being picked, default weight is 1.')
             return True
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0} [{1},{2},{3}]'.format(self.pugInfo.gameServer.format_gameServerURL,self.pugInfo.pugLocked,self.pugInfo.ranked))
+            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
             await ctx.send('Maps cannot be added while a match is in progress.')
         else:
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
