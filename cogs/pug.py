@@ -2991,7 +2991,7 @@ class PUG(commands.Cog):
     @commands.command(aliases=['clearmaplist'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkclearmaps(self, ctx, mode: str, force):
+    async def rkclearmaps(self, ctx, mode: str = '', force= ''):
         """Clears all available maps from a ranked mode maplist. Parameters: GameMode [force]"""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified to clear maps.')
@@ -3026,7 +3026,7 @@ class PUG(commands.Cog):
     @commands.command(aliases=['rkaddmap'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkaddmaps(self, ctx, mode: str, *maps: str):
+    async def rkaddmaps(self, ctx, mode: str='', *maps: str):
         """Adds maps to a ranked mode maplist. Parameters: GameMode Map:Order:Weight"""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified to add maps.')
@@ -3087,7 +3087,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rklimit','rksetlimit', 'rksetmaps','rksetmaplimit'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkmaplimit(self, ctx, mode: str, limit: int, shuffle: str = ''):
+    async def rkmaplimit(self, ctx, mode: str='', limit: int = 5, shuffle: str = ''):
         """Sets the pick limit and shuffle mode for a ranked mode maplist."""
         if (mode in [None,''] or limit in [None, '']):
             await ctx.send('A valid ranked mode and map limit must be specified.')
@@ -3132,7 +3132,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkconf(self, ctx, mode: str, capmode: int = 0, role: discord.Role=None, window: int = 0):
+    async def rkconf(self, ctx, mode: str = '', capmode: int = 0, role: discord.Role=None, window: int = 0):
         """Configures ranked mode core settings."""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
@@ -3171,7 +3171,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkscoreconfig','rkscoreconf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkscoring(self, ctx, mode: str, scoremode: str = 'permap', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
+    async def rkscoring(self, ctx, mode: str = '', scoremode: str = 'permap', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
         """Configures ranked mode scoring settings."""
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
@@ -3217,6 +3217,68 @@ class PUG(commands.Cog):
                     await ctx.send('Error - ranked game config could not be updated; check bot logs.')
         else:
             await ctx.send('Error - ranked mode not found, or no ranked configuration exists.')
+        return True
+
+    @commands.hybrid_command(aliases=['rklist'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkrecent(self, ctx, mode: str = '', last: int = 5, completed: str = ''):
+        """Returns recent ranked matches"""
+        if (mode in [None,'']):
+            if self.pugInfo.ranked:
+                mode = self.pugInfo.mode
+            else:
+                await ctx.send('A valid ranked mode must be specified.')
+                return True
+        games = []
+        msg = []
+        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if 'rankedgames' in rkData:
+            for x in rkData['rankedgames']:
+                if 'mode' in x and str(x['mode']).upper() == mode.upper():
+                    mode = x['mode']
+                    games = sorted(x['games'], key=lambda g: g['startdate'])
+                    players = {}
+                    if 'ratings' in x:
+                        for p in x['ratings']:
+                            players[p['did']] = p['dlastnick']
+        msg = 'Recent {0} ranked games:\n'.format(mode)
+        i = 0
+        for g in games:
+            teamred = []
+            teamblue = []
+            if (i < last) and (len(completed) > 0 and g['completed']) or len(completed) == 0:
+                i+=1
+                if g['completed'] and len(g['enddate']):
+                    g_enddate = 'Completed @ '+datetime.fromisoformat(g['enddate']).strftime('%d/%b/%Y @ %H:%M')
+                else:
+                    g_enddate = 'DNF/Void'
+                g_startdate = datetime.fromisoformat(g['startdate']).strftime('%a, %d/%b/%Y @ %H:%M')
+                for x in g['teamred']:
+                    if g['capred']['id'] == x:
+                        teamred.append(players[x]+'({0})'.format(CAPSIGN))
+                    else:
+                        teamred.append(players[x])
+                for x in g['teamblue']:
+                    if g['capblue']['id'] == x:
+                        teamblue.append(players[x]+'({0})'.format(CAPSIGN))
+                    else:
+                        teamblue.append(players[x])
+                msg = msg+'{0}) Match Ref: `{1}`; Started {2}, {3}\n'.format(i, g['gameref'],g_startdate,g_enddate)
+                msg = msg+'> Red team (RP: {0}): {1}, Blue team (RP: {2}): {3}\n'.format(g['rpred'],PLASEP.join(teamred),g['rpblue'],PLASEP.join(teamblue))
+                msg = msg+'> Score :red_square: {0} - {1} :blue_square:\n\n'.format(g['scorered'],g['scoreblue'])
+        await ctx.send(msg) 
+        return True
+
+    @commands.hybrid_command(aliases=['rkvoid'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkvoidmatch(self, ctx, mode: str = '', matchref: str = ''):
+        await ctx.send(':soon:')
+        if (mode in [None,'']):
+            await ctx.send('A valid ranked mode must be specified.')
+            return True
         return True
 
     #########################################################################################
