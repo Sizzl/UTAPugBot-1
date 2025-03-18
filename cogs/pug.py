@@ -3266,7 +3266,7 @@ class PUG(commands.Cog):
                     else:
                         teamblue.append(players[x])
                 msg = msg+'{0}) Match Ref: `{1}`; Started {2}, {3}\n'.format(i, g['gameref'],g_startdate,g_enddate)
-                msg = msg+'> Red team (RP: {0}): {1}, Blue team (RP: {2}): {3}\n'.format(g['rpred'],PLASEP.join(teamred),g['rpblue'],PLASEP.join(teamblue))
+                msg = msg+'> Red team (RP: {0}): {1}\n> Blue team (RP: {2}): {3}\n'.format(g['rpred'],PLASEP.join(teamred),g['rpblue'],PLASEP.join(teamblue))
                 msg = msg+'> Score :red_square: {0} - {1} :blue_square:\n\n'.format(g['scorered'],g['scoreblue'])
         await ctx.send(msg) 
         return True
