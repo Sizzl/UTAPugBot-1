@@ -48,15 +48,15 @@ DEFAULT_CONFIG_FILE = 'servers/config.json'
 DEFAULT_RATING_FILE = 'players/ratings.json'
 
 # Valid modes with default config
-Mode = collections.namedtuple('Mode', 'isRanked maxPlayers friendlyFireScale gameType mutators')
+Mode = collections.namedtuple('Mode', 'isRanked minPlayers maxPlayers friendlyFireScale gameType mutators')
 MODE_CONFIG = {
-    'stdAS': Mode(False, 20, 0, 'LeagueAS140.LeagueAssault', None),
-    'proAS': Mode(False, 20, 100, 'LeagueAS140.LeagueAssault', None),
-    'ASplus': Mode(False, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'rASplus': Mode(True, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'proASplus': Mode(False, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'iAS': Mode(False, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.iAS'),
-    'ZPiAS': Mode(False, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
+    'stdAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', None),
+    'proAS': Mode(False, 2, 20, 100, 'LeagueAS140.LeagueAssault', None),
+    'ASplus': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
+    'rASplus': Mode(True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
+    'proASplus': Mode(False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
+    'iAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.iAS'),
+    'ZPiAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
 }
 
 RED_PASSWORD_PREFIX = 'RP'
@@ -123,6 +123,10 @@ PLASEP = '\N{SMALL ORANGE DIAMOND}'
 MODSEP = '\N{SMALL BLUE DIAMOND}'
 OKMSG = '\N{OK HAND SIGN}'
 CAPSIGN = '\N{CROWN}'
+GRAPHUP = '\N{CHART WITH UPWARDS TREND}'
+GRAPHDN = '\N{CHART WITH DOWNWARDS TREND}'
+UP = '\U0001F53A'
+DN = '\U0001F53B'
 
 DISCORD_MD_CHARS = '*~_`'
 DISCORD_MD_ESCAPE_RE = re.compile('[{}]'.format(DISCORD_MD_CHARS))
@@ -2075,9 +2079,10 @@ class PUG(commands.Cog):
                 msg = 'Match finished. Resetting pug'
                 if (self.pugInfo.ranked):
                     msg = msg+' and updating player RP.'
+                    await self.activeChannel.send(msg)
                 else:
                     msg = msg+'...'
-                await self.activeChannel.send(msg)
+                    await self.activeChannel.send(msg)
                 if self.pugInfo.resetPug():
                     await self.activeChannel.send(self.pugInfo.format_pug())
                     log.info('Match over.')
@@ -2641,16 +2646,208 @@ class PUG(commands.Cog):
                 else:
                     self.customStaticEmojis[':{0}:'.format(x.name)] = x.id
 
-    def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False):
-        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+    def ratingsMatchInfo(self, mode, matchCode: str = ''):
+        matchInfo = {}
+        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
+            rkData = {'rankedgames':[]}
+            rkData['rankedgames'].append(self.pugInfo.ratings)
+        else:
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
-            log.debug('{0}({1},{2},{3},{4}) - ranked games present.'.format(action,player.id,mode,rating,toggle))
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                    log.debug('{0}({1},{2},{3},{4}) - enumerating mode {5}.'.format(action,player.id,mode,rating,toggle,x['mode']))
+                    if 'games' in x:
+                        if matchCode == 'last':
+                            matchInfo = sorted(x['games'], key=lambda g: datetime.fromisoformat(g['startdate']), reverse=True)[0]
+                        else:
+                            for g in x['games']:
+                                if g['gameref'].upper() == matchCode.upper():
+                                    matchInfo = g
+        return matchInfo
+    
+    def ratingsMatchReport(self, mode, teamRed: list = [], teamBlue: list = [], matchref: str = '', playerid: int = 0):
+        cards = []
+        embedInfo = discord.Embed(color=discord.Color.greyple(),title='Ranked mode {0} match report'.format(mode),description='')
+        if len(matchref) == 0 and playerid == 0:
+            if len(self.pugInfo.gameServer.matchCode):
+                matchref = self.pugInfo.gameServer.matchCode
+            elif len(self.pugInfo.gameServer.lastMatchCode):
+                matchref = self.pugInfo.gameServer.lastMatchCode
+        if len(matchref) > 0:
+            embedInfo.description = 'Match reference: `{0}`'.format(matchref)
+            matchInfo = self.ratingsMatchInfo(mode,matchref)
+            if matchInfo == {}:
+                embedInfo.title = 'Match not found'
+                return embedInfo
+            else:
+                matchref = matchInfo['gameref']
+                embedInfo.description = 'Match reference: `{0}` ([stats]({1}{2}{3}))'.format(matchref,DEFAULT_POST_SERVER,'/pugstats/index.php?p=uta_match&matchcode=',matchref)
+                started = datetime.fromisoformat(matchInfo['startdate'])
+                embedInfo.add_field(name='Match started',value=started.strftime('%d/%b/%Y @ %H:%M'),inline=True)
+                if matchInfo['completed']:
+                    ended = datetime.fromisoformat(matchInfo['enddate'])
+                    embedInfo.add_field(name='Match ended',value=ended.strftime('%d/%b/%Y @ %H:%M'),inline=True)
+                    embedInfo.add_field(name='Duration',value=str(((ended-started).seconds // 60) % 60)+' mins',inline=True)
+                    embedInfo.color = discord.Color.brand_green()
+                else:
+                    embedInfo.add_field(name='Status',value='Incomplete / Void',inline=True)
+                embedInfo.add_field(name="Map list",value=PLASEP.join(matchInfo['maplist']),inline=False)
+                embedInfo.add_field(name="Team Power",value='Red {0} - {1} Blue'.format(matchInfo['rpred'],matchInfo['rpblue']))
+                embedInfo.add_field(name="Score",value='Red {0} - {1} Blue'.format(matchInfo['scorered'],matchInfo['scoreblue']))
+            cards.append(embedInfo)
+            if 'teamred' in matchInfo:
+                teamRed = matchInfo['teamred']
+            if 'teamblue' in matchInfo:
+                teamBlue = matchInfo['teamblue']
+        if len(teamRed) > 0:
+            embedInfo = discord.Embed(color=discord.Color.red(),title='Team Red player ratings '.format(GRAPHUP),description='')
+            if matchInfo['scorered'] < matchInfo['scoreblue']:
+                embedInfo.title = embedInfo.title+GRAPHDN
+            else:
+                embedInfo.title = embedInfo.title+GRAPHUP
+            report = self.ratingsPlayerReport(mode=mode,players=teamRed,matchref=matchref)
+            if 'cap_name' in report and report['cap_name'] not in [None,'']:
+                embedInfo.add_field(name='Captain',value='{0}'.format(report['cap_name']),inline=True)
+                embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
+                embedInfo.description = ''
+            if 'players' in report and report['players'] not in [None,'']:
+                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=False)
+                embedInfo.description = ''
+            if embedInfo.description != 'Data not found':
+                cards.append(embedInfo)
+        if len(teamBlue) > 0:
+            embedInfo = discord.Embed(color=discord.Color.blurple(),title='Team Blue player ratings ',description='Data not found')
+            if matchInfo['scorered'] > matchInfo['scoreblue']:
+                embedInfo.title = embedInfo.title+GRAPHDN
+            else:
+                embedInfo.title = embedInfo.title+GRAPHUP
+            report = self.ratingsPlayerReport(mode=mode,players=teamBlue,matchref=matchref)
+            if 'cap_name' in report and report['cap_name'] not in [None,'']:
+                embedInfo.add_field(name='Captain',value='{0}'.format(report['cap_name']),inline=True)
+                embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
+                embedInfo.description = ''
+            if 'players' in report and report['players'] not in [None,'']:
+                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=False)
+                embedInfo.description = ''
+            if embedInfo.description != 'Data not found':
+                cards.append(embedInfo)
+        if playerid > 0:
+            embedInfo = discord.Embed(color=discord.Color.greyple(),title='Player rating history',description='Data not found')
+            report = self.ratingsPlayerReport(mode=mode,playerid=playerid)
+            if 'player_name' in report and report['player_name'] not in [None,'']:
+                embedInfo.description = 'Ratings history for {0}'.format(report['player_name'])
+                embedInfo.add_field(name='Last game',value='{0}'.format(report['player_last']),inline=False)
+                if len(report['player_hist']):
+                    embedInfo.add_field(name='Previous games',value='{0}'.format(report['player_hist']),inline=False)
+            if embedInfo.description != 'Data not found':
+                cards.append(embedInfo)
+        return cards
+    
+    def ratingsPlayerReport(self, mode, players: list = [], matchref: str = '', playerid: int = 0):
+        def updn(score1,score2):
+            if score1 > score2:
+                status = UP
+            elif score2 > score1:            
+                status = DN
+            else:
+                status = MODSEP                    
+            return status
+        capSummary = ''
+        report = {'cap_name':'','cap_rp':'','players':'','players_rp':'','player_name':'','player_last':'','player_hist':''}
+        if len(players) > 0:
+            cap = self.ratingsPlayerDataHandler('rkget',mode,players[0])
+            if cap['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
+                capSummary = 'Current RP: {0} {2} Previous RP: {1}'.format(cap['ratingvalue'],cap['ratingprevious'],updn(cap['ratingvalue'],cap['ratingprevious']))
+            else:
+                for h in cap['ratinghistory']:
+                    if h['matchref'].upper() == matchref.upper() or len(matchref) == 0:
+                        capSummary = 'RP before: {0} {2} RP after: {1}; Current RP: {3}'.format(h['ratingbefore'],h['ratingafter'],updn(h['ratingafter'],h['ratingbefore']),cap['ratingvalue'])
+            report['cap_name'] = cap['dlastnick']
+            report['cap_rp'] = capSummary
+        elif playerid > 0:
+            player = self.ratingsPlayerDataHandler('rkget',mode,playerid)
+            report['player_name'] = player['dlastnick']
+            if len(player['lastgamedate']) > 0:
+                g_startdate = datetime.fromisoformat(player['lastgamedate']).strftime('%d/%b/%Y @ %H:%M')
+                if player['lastgameref'] == 'admin-set':
+                    if player['ratingprevious'] == 0:
+                        pSummary = 'Admin seeded rating of **{0}** on {0}\n'.format(player['ratingvalue'],g_startdate)
+                    else:
+                        pSummary = 'Admin set rating on {0}: RP before: **{1}** {2} RP after: **{3}**\n'.format(g_startdate,player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
+                else:
+                    matchInfo = self.ratingsMatchInfo(mode, player['lastgameref'])
+                    if matchInfo != {}:
+                        if playerid in matchInfo['teamred']:
+                            pteam = 'Red'
+                        else:
+                            pteam = 'Blue'
+                        if (matchInfo['completed']):
+                            pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Score: Red {3} - {4} Blue;\n> RP before: **{5}** {6} RP after: **{7}**\n'.format(player['lastgameref'],g_startdate,pteam,matchInfo['scorered'],matchInfo['scoreblue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
+                        else:
+                            pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Status: Incomplete / voided match\n'.format(player['lastgameref'],g_startdate,pteam)
+                    else:
+                        pSummary = 'Match: `{0}` @ {1}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(player['lastgameref'],g_startdate,player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
+            else:
+                g_startdate = datetime.fromisoformat(player['ratingdate']).strftime('%d/%b/%Y')
+                pSummary = 'Seed rating, set on {0}: **{1}**\n'.format(g_startdate,player['ratingvalue'])
+            report['player_last'] = pSummary
+            pSummary = ''
+            if 'ratinghistory' in player:
+                history = sorted(player['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate']), reverse=True)
+                for h in history:
+                    g_startdate = datetime.fromisoformat(h['matchdate']).strftime('%d/%b/%Y @ %H:%M')
+                    if h['matchref'] == 'admin-set':
+                        if h['ratingbefore'] == 0:
+                            pSummary = pSummary+'Admin seeded rating of **{0}** on {1}\n'.format(h['ratingafter'],g_startdate)
+                        else:
+                            pSummary = pSummary+'Admin set rating on {0}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+                    else:
+                        matchInfo = self.ratingsMatchInfo(mode, h['matchref'])
+                        if matchInfo != {}:
+                            if playerid in matchInfo['teamred']:
+                                pteam = 'Red'
+                            else:
+                                pteam = 'Blue'
+                            if (matchInfo['completed']):
+                                pSummary = pSummary+'Match: `{0}` @ {1}\n> Team: {2}\n> Score: Red {3} - {4} Blue\n> RP before: **{5}** {6} RP after: **{7}**\n'.format(h['matchref'],g_startdate,pteam,matchInfo['scorered'],matchInfo['scoreblue'],h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+                            else:
+                                pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Status: Incomplete / voided match\n'.format(h['matchref'],g_startdate,pteam)
+                        else:
+                            pSummary = pSummary+'Match: `{0}` @ {1}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(h['matchref'],g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+            report['player_hist'] = pSummary
+        if len(players) > 1:
+            for p in players[1:]:
+                player = self.ratingsPlayerDataHandler('rkget',mode,p)
+                report['players'] = report['players']+player['dlastnick']+'\n'
+                if player['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
+                    report['players_rp'] = report['players_rp']+'Current RP: {0} {2} Previous RP: {1}\n'.format(player['ratingvalue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']))
+                else:
+                    for h in player['ratinghistory']:
+                        if h['matchref'].upper() == matchref.upper() or len(matchref) == 0:
+                            report['players_rp'] = report['players_rp']+'RP before: {0} {2} RP after: {1}; Current RP: {3}\n'.format(h['ratingbefore'],h['ratingafter'],updn(h['ratingafter'],h['ratingbefore']),player['ratingvalue'])
+        return report
+    
+    def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False):
+        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
+            rkData = {'rankedgames':[self.pugInfo.ratings]}
+        else:
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if 'rankedgames' in rkData:
+            for x in rkData['rankedgames']:
+                if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode'] # update formatting
-                    if (action == 'rkset'):
+                    if (action == 'rkget'):
+                        if type(player) is int:
+                            pid = player
+                        else:
+                            pid = player.id
+                        if pid in x['registrations']:
+                            for r in x['ratings']:
+                                if r['did'] == pid:
+                                    return r
+                    elif (action == 'rkset'):
                         if player.id not in x['registrations']:
                             x['registrations'].append(player.id) # register player as eligible
                             log.debug('{0}({1},{2},{3},{4}) - registering new pid for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
@@ -3238,7 +3435,7 @@ class PUG(commands.Cog):
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode']
-                    games = sorted(x['games'], key=lambda g: g['startdate'])
+                    games = sorted(x['games'], key=lambda g: datetime.fromisoformat(g['startdate']), reverse=True)
                     players = {}
                     if 'ratings' in x:
                         for p in x['ratings']:
@@ -3248,7 +3445,7 @@ class PUG(commands.Cog):
         for g in games:
             teamred = []
             teamblue = []
-            if (i < last) and (len(completed) > 0 and g['completed']) or len(completed) == 0:
+            if (i < last) and ((len(completed) > 0 and g['completed']) or len(completed) == 0):
                 i+=1
                 if g['completed'] and len(g['enddate']):
                     g_enddate = 'Completed @ '+datetime.fromisoformat(g['enddate']).strftime('%d/%b/%Y @ %H:%M')
@@ -3269,6 +3466,53 @@ class PUG(commands.Cog):
                 msg = msg+'> Red team (RP: {0}): {1}\n> Blue team (RP: {2}): {3}\n'.format(g['rpred'],PLASEP.join(teamred),g['rpblue'],PLASEP.join(teamblue))
                 msg = msg+'> Score :red_square: {0} - {1} :blue_square:\n\n'.format(g['scorered'],g['scoreblue'])
         await ctx.send(msg) 
+        return True
+
+    @commands.hybrid_command(aliases=['rkreport'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkrp(self, ctx, mode: str = '', matchref: str = '', player: discord.Member = None):
+        """Returns match and player RP reports"""
+        pid = re.search(r'<@(\d*)>', mode)
+        if (pid):
+            player = int(pid.group(1))
+            matchref = ''
+            mode = ''
+        if (mode in [None,'','last']):
+            if mode == 'last' and len(matchref) == 0:
+                matchref = mode
+            if self.pugInfo.ranked:
+                mode = self.pugInfo.mode
+            else:
+                await ctx.send('A valid ranked mode must be specified.')
+                return True
+        else:
+            if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
+                mode = self.pugInfo.mode # fix case
+        teamRed = []
+        teamBlue = []
+        reports = []
+        if self.isPugInProgress and self.pugInfo.ranked and len(matchref) == 0 and player in ['',None]:
+            teamBlue = self.pugInfo.blue
+            teamRed = self.pugInfo.red
+        matchref = re.sub(r'\'|"', '', matchref)
+        if (len(teamRed) > 0 and len(teamBlue) > 0) or (len(matchref) > 0 and matchref not in ['player','']):
+            reports = self.ratingsMatchReport(mode=mode,teamRed=teamRed,teamBlue=teamBlue,matchref=matchref)
+        elif player not in ['',None]:
+            if (pid):
+                reports = self.ratingsMatchReport(mode=mode,playerid=int(pid.group(1)))
+            else:
+                reports = self.ratingsMatchReport(mode=mode,playerid=player.id)
+        else:
+            await ctx.send('Please provide a valid mode, plus match reference or @player.')
+        if len(reports) > 0:
+            if reports[0].title == 'Match not found':
+                await ctx.send('Match report not found. Please provide a valid match reference.')    
+            elif reports[0].title == 'Player not found':
+                await ctx.send('Player not found or seed rating not defined. Please provide a valid @player, or add with a rating.')
+            else:
+                for r in reports:
+                    await ctx.message.channel.send(embed=r)
         return True
 
     @commands.hybrid_command(aliases=['rkvoid'])
@@ -3492,14 +3736,31 @@ class PUG(commands.Cog):
     @commands.check(isPugInProgress_Warn)
     async def setplayers(self, ctx, limit: int):
         """Sets number of players"""
-        if self.pugInfo.captainsReady:
+        if self.pugInfo.ranked != True and self.pugInfo.captainsReady:
             await ctx.send('Pug already in picking mode. Reset if you wish to change player limit.')
-        elif (limit > 1 and limit % 2 == 0 and limit <= MODE_CONFIG[self.pugInfo.mode].maxPlayers):
+        elif (limit % 2 == 0 and limit >= MODE_CONFIG[self.pugInfo.mode].minPlayers and limit <= MODE_CONFIG[self.pugInfo.mode].maxPlayers):
             self.pugInfo.setMaxPlayers(limit)
             await ctx.send('Player limit set to ' + str(self.pugInfo.maxPlayers))
             await self.processPugStatus(ctx)
         else:
-            await ctx.send('Player limit unchanged. Players must be a multiple of 2 + between 2 and ' + str(MODE_CONFIG[self.pugInfo.mode].maxPlayers))
+            await ctx.send('Player limit unchanged. Players must be a multiple of 2 + between {0} and {1}'.format(str(MODE_CONFIG[self.pugInfo.mode].minPlayers),str(MODE_CONFIG[self.pugInfo.mode].maxPlayers)))
+
+    @commands.hybrid_command()
+    @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
+    @commands.check(isPugInProgress_Warn)
+    @commands.check(admin.hasManagerRole_Check)
+    async def adminsetplayers(self, ctx, limit: int):
+        """Force sets number of players"""
+        if self.pugInfo.ranked != True and self.pugInfo.captainsReady:
+            await ctx.send('Pug already in picking mode. Reset if you wish to change player limit.')
+        elif (limit % 2 == 0):
+            self.pugInfo.setMaxPlayers(limit)
+            await ctx.send('Player limit forcefully set to {0}. ({1} min: {2}, max: {3})'.format(str(self.pugInfo.maxPlayers),self.pugInfo.mode,str(MODE_CONFIG[self.pugInfo.mode].minPlayers),str(MODE_CONFIG[self.pugInfo.mode].maxPlayers)))
+            await self.processPugStatus(ctx)
+        else:
+            await ctx.send('Player limit unchanged. Players must be a multiple of 2')
+
 
     @commands.hybrid_command()
     @commands.guild_only()

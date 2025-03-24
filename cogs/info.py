@@ -91,7 +91,7 @@ class Info(commands.Cog):
     @commands.guild_only()
     async def bunnytrack(self, ctx):
         """Shows UTA BunnyTrack server info"""
-        await ctx.send("UTA BunnyTrack server: **unreal://www.utapug.net:9100**")
+        await ctx.send("UTA BunnyTrack server: **unreal://pug1.utassault.net:9100**")
 
     @commands.command(aliases = ['tdm', 'dm'])
     @commands.guild_only()
@@ -109,7 +109,7 @@ class Info(commands.Cog):
     @commands.guild_only()
     async def rocketarena(self, ctx):
         """Shows UTA RocketArena server info"""
-        await ctx.send("UTA RocketArena server: **unreal://www.utapug.net:9600**")
+        await ctx.send("UTA RocketArena server: **unreal://pug1.utassault.net:9600**")
 
 async def setup(bot):
     await bot.add_cog(Info(bot))
