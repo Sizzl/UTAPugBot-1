@@ -1964,7 +1964,7 @@ class AssaultPug(PugTeams):
                     scoremode = x['scoring']['mode']
                     capWinRP = x['scoring']['capWin']
                     capLoseRP = x['scoring']['capLose']
-                    if scoremode == "permap":
+                    if scoremode == 'permap':
                         winRP = (x['scoring']['teamWin']*winScore) + (x['scoring']['teamLose']*loseScore)
                         loseRP = (x['scoring']['teamWin']*loseScore) + (x['scoring']['teamLose']*winScore)
                     else:
@@ -1972,6 +1972,10 @@ class AssaultPug(PugTeams):
                         loseRP = x['scoring']['teamLose']
                     for p in x['ratings']:
                         if p['lastgameref'] != match['gameref']:
+                            if len(p['lastgameref']) == 0:
+                                p['lastgameref'] = 'admin-set'
+                            if len(p['lastgamedate']) == 0:
+                                p['lastgamedate'] = p['ratingdate']
                             if p['did'] in winners or p['did'] in losers:
                                 p['ratingprevious'] = p['ratingvalue']
                                 if p['did'] in winners:
@@ -1992,8 +1996,8 @@ class AssaultPug(PugTeams):
                                     'ratingbefore': p['ratingprevious'],
                                     'ratingafter': p['ratingvalue']
                                 })
-                                if 'ratinghistory' in p and len(p['ratinghistory']) > 30:
-                                     p['ratinghistory'][:] = p['ratinghistory'][-30:]
+                                if 'ratinghistory' in p and len(p['ratinghistory']) > 40:
+                                     p['ratinghistory'][:] = p['ratinghistory'][-40:]
                                 p['lastgamedate'] = match['startdate']
                                 p['lastgameref'] = match['gameref']
         return rkData
@@ -2688,7 +2692,7 @@ class PUG(commands.Cog):
                 if matchInfo['completed']:
                     ended = datetime.fromisoformat(matchInfo['enddate'])
                     embedInfo.add_field(name='Match ended',value=ended.strftime('%d/%b/%Y @ %H:%M'),inline=True)
-                    embedInfo.add_field(name='Duration',value=str(((ended-started).seconds // 60) % 60)+' mins',inline=True)
+                    embedInfo.add_field(name='Duration',value=str(round(((ended-started).total_seconds()//60)%60,0))+' mins',inline=True)
                     embedInfo.color = discord.Color.brand_green()
                 else:
                     embedInfo.add_field(name='Status',value='Incomplete / Void',inline=True)
@@ -2712,9 +2716,10 @@ class PUG(commands.Cog):
                 embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
                 embedInfo.description = ''
             if 'players' in report and report['players'] not in [None,'']:
-                embedInfo.add_field(name="\u200B", value="\u200B")
-                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
-                embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
+                #embedInfo.add_field(name="\u200B", value="\u200B")
+                #embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
+                #embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
+                embedInfo.add_field(name='Player ratings',value='{0}'.format(report['players_sum']),inline=False)
                 embedInfo.description = ''
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
@@ -2730,9 +2735,10 @@ class PUG(commands.Cog):
                 embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
                 embedInfo.description = ''
             if 'players' in report and report['players'] not in [None,'']:
-                embedInfo.add_field(name="\u200B", value="\u200B")
-                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
-                embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
+                #embedInfo.add_field(name="\u200B", value="\u200B")
+                #embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
+                #embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
+                embedInfo.add_field(name='Player ratings',value='{0}'.format(report['players_sum']),inline=False)
                 embedInfo.description = ''
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
@@ -2758,7 +2764,7 @@ class PUG(commands.Cog):
                 status = MODSEP                    
             return status
         capSummary = ''
-        report = {'cap_name':'','cap_rp':'','players':'','players_rp':'','player_name':'','player_last':'','player_hist':''}
+        report = {'cap_name':'','cap_rp':'','players':'','players_rp':'','players_sum':'','player_name':'','player_last':'','player_hist':''}
         if len(players) > 0:
             cap = self.ratingsPlayerDataHandler('rkget',mode,players[0])
             if cap['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
@@ -2816,7 +2822,7 @@ class PUG(commands.Cog):
                             if (matchInfo['completed']):
                                 pSummary = pSummary+'Match: `{0}` @ {1}\n> Team: {2}\n> Score: Red {3} - {4} Blue\n> RP before: **{5}** {6} RP after: **{7}**\n'.format(h['matchref'],g_startdate,pteam,matchInfo['scorered'],matchInfo['scoreblue'],h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
                             else:
-                                pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Status: Incomplete / voided match\n'.format(h['matchref'],g_startdate,pteam)
+                                pSummary = pSummary+'Match: `{0}` @ {1}\n> Team: {2}\n> Status: Incomplete / voided match\n'.format(h['matchref'],g_startdate,pteam)
                         else:
                             pSummary = pSummary+'Match: `{0}` @ {1}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(h['matchref'],g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
             report['player_hist'] = pSummary
@@ -2824,12 +2830,17 @@ class PUG(commands.Cog):
             for p in players[1:]:
                 player = self.ratingsPlayerDataHandler('rkget',mode,p)
                 report['players'] = report['players']+player['dlastnick']+'\n'
+                report['players_sum'] = report['players_sum']+'**'+player['dlastnick']+'**\n> '
                 if player['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
-                    report['players_rp'] = report['players_rp']+'Current RP: {0} {2} Previous RP: {1}\n'.format(player['ratingvalue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']))
+                    pSummary = 'Current RP: {0} {2} Previous RP: {1}\n'.format(player['ratingvalue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']))
+                    report['players_rp'] = report['players_rp']+pSummary
+                    report['players_sum'] = report['players_sum']+pSummary
                 else:
                     for h in player['ratinghistory']:
                         if h['matchref'].upper() == matchref.upper() or len(matchref) == 0:
-                            report['players_rp'] = report['players_rp']+'RP before: {0} {2} RP after: {1}; Current RP: {3}\n'.format(h['ratingbefore'],h['ratingafter'],updn(h['ratingafter'],h['ratingbefore']),player['ratingvalue'])
+                            pSummary = 'RP before: {0} {2} RP after: {1}; Current RP: {3}\n'.format(h['ratingbefore'],h['ratingafter'],updn(h['ratingafter'],h['ratingbefore']),player['ratingvalue'])
+                            report['players_rp'] = report['players_rp']+pSummary
+                            report['players_sum'] = report['players_sum']+pSummary
         return report
     
     def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False):
@@ -2866,14 +2877,18 @@ class PUG(commands.Cog):
                                         r['ratinghistory'] = []
                                 else:
                                     r['ratinghistory'] = []
+                                if len(r['lastgameref'])==0:
+                                    r['lastgameref'] = 'admin-set'
+                                if len(r['lastgamedate'])==0:
+                                    r['lastgamedate'] = r['ratingdate']
                                 r['ratinghistory'].append({
-                                    'matchref': 'admin-set',
+                                    'matchref': r['lastgameref'],
                                     'matchdate': r['ratingdate'],
                                     'ratingbefore': r['ratingvalue'],
                                     'ratingafter': rating
                                 })
-                                if len(r['ratinghistory']) > 30:
-                                     r['ratinghistory'][:] = r['ratinghistory'][-30:]
+                                if len(r['ratinghistory']) > 40:
+                                     r['ratinghistory'][:] = r['ratinghistory'][-40:]
                                 r['ratingprevious'] = r['ratingvalue']
                                 r['ratingvalue'] = rating
                                 r['lastgamedate'] = ''
