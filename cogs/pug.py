@@ -2712,7 +2712,9 @@ class PUG(commands.Cog):
                 embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
                 embedInfo.description = ''
             if 'players' in report and report['players'] not in [None,'']:
-                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=False)
+                embedInfo.add_field(name="\u200B", value="\u200B")
+                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
+                embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
                 embedInfo.description = ''
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
@@ -2728,7 +2730,9 @@ class PUG(commands.Cog):
                 embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
                 embedInfo.description = ''
             if 'players' in report and report['players'] not in [None,'']:
-                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=False)
+                embedInfo.add_field(name="\u200B", value="\u200B")
+                embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
+                embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
                 embedInfo.description = ''
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
