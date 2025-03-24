@@ -2805,7 +2805,7 @@ class PUG(commands.Cog):
                         if h['ratingbefore'] == 0:
                             pSummary = pSummary+'Admin seeded rating of **{0}** on {1}\n'.format(h['ratingafter'],g_startdate)
                         else:
-                            pSummary = pSummary+'Admin set rating on {0}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+                            pSummary = pSummary+'Admin set rating on {0}\n> RP before: **{1}** {2} RP after: **{3}**\n'.format(g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
                     else:
                         matchInfo = self.ratingsMatchInfo(mode, h['matchref'])
                         if matchInfo != {}:
