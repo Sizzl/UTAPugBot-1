@@ -1928,11 +1928,12 @@ class AssaultPug(PugTeams):
                     self.setRankedMode(self.ranked, True)
         return True
 
-    def applyRankedScoring(self, rkData: object, mode: str, match: object, void: bool = False):
+    def applyRankedScoring(self, rkData: object, mode: str, match: object, void: bool = False, player: int = 0):
         """Searches for the given match code and applies given scoring logic to players"""
         # TO-DO Add voluntary captain scoring when capmode 3 is supported
         winners = []
         losers = []
+        modeData = {}
         winCap = 0
         loseCap = 0
         winScore = 0
@@ -1940,66 +1941,76 @@ class AssaultPug(PugTeams):
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                    if match['scorered'] > match['scoreblue']:
-                        winners = match['teamred']
-                        losers = match['teamblue']
-                        winScore = match['scorered']
-                        loseScore = match['scoreblue']
-                        winCap = match['capred']['id']
-                        loseCap = match['capblue']['id']
-                    elif match['scoreblue'] > match['scorered']:
-                        winners = match['teamblue']
-                        losers = match['teamred']
-                        winScore = match['scoreblue']
-                        loseScore = match['scorered']
-                        winCap = match['capblue']['id']
-                        loseCap = match['capred']['id']
-                if void:
-                    for p in x['ratings']:
+                    modeData = x
+        elif 'mode' in rkData:
+            if str(rkData['mode']).upper() == mode.upper():
+                modeData = rkData
+        if modeData != {} and match != {}:            
+            if match['scorered'] > match['scoreblue']:
+                winners = match['teamred']
+                losers = match['teamblue']
+                winScore = match['scorered']
+                loseScore = match['scoreblue']
+                winCap = match['capred']['id']
+                loseCap = match['capblue']['id']
+            elif match['scoreblue'] > match['scorered']:
+                winners = match['teamblue']
+                losers = match['teamred']
+                winScore = match['scoreblue']
+                loseScore = match['scorered']
+                winCap = match['capblue']['id']
+                loseCap = match['capred']['id']
+            if void:
+                for p in modeData['ratings']:
+                    if p['did'] in winners or p['did'] in losers:
+                        # To-Do: Flag for recalc
+                        p['ratingvalue'] = p['ratingprevious']
+                match['completed'] = False # This won't be returned yet
+            elif 'scoring' in modeData:
+                scoremode = modeData['scoring']['mode']
+                capWinRP = modeData['scoring']['capWin']
+                capLoseRP = modeData['scoring']['capLose']
+                if scoremode == 'permap':
+                    winRP = (modeData['scoring']['teamWin']*winScore) + (modeData['scoring']['teamLose']*loseScore)
+                    loseRP = (modeData['scoring']['teamWin']*loseScore) + (modeData['scoring']['teamLose']*winScore)
+                else:
+                    winRP = modeData['scoring']['teamWin']
+                    loseRP = modeData['scoring']['teamLose']
+                for p in modeData['ratings']:
+                    if p['lastgameref'] != match['gameref']:
+                        if len(p['lastgameref']) == 0:
+                            p['lastgameref'] = 'admin-set'
+                        if len(p['lastgamedate']) == 0:
+                            p['lastgamedate'] = p['ratingdate']
+                    if p['did'] == player or (player == 0 and p['lastgameref'] != match['gameref']):
                         if p['did'] in winners or p['did'] in losers:
-                            # To-Do: Run through ratings by date and re-work out winners and losers to adjust points
-                            p['ratingvalue'] = p['ratingprevious']
-                    match['completed'] = False
-                elif 'scoring' in x:
-                    scoremode = x['scoring']['mode']
-                    capWinRP = x['scoring']['capWin']
-                    capLoseRP = x['scoring']['capLose']
-                    if scoremode == 'permap':
-                        winRP = (x['scoring']['teamWin']*winScore) + (x['scoring']['teamLose']*loseScore)
-                        loseRP = (x['scoring']['teamWin']*loseScore) + (x['scoring']['teamLose']*winScore)
-                    else:
-                        winRP = x['scoring']['teamWin']
-                        loseRP = x['scoring']['teamLose']
-                    for p in x['ratings']:
-                        if p['lastgameref'] != match['gameref']:
-                            if len(p['lastgameref']) == 0:
-                                p['lastgameref'] = 'admin-set'
-                            if len(p['lastgamedate']) == 0:
-                                p['lastgamedate'] = p['ratingdate']
-                            if p['did'] in winners or p['did'] in losers:
-                                p['ratingprevious'] = p['ratingvalue']
-                                if p['did'] in winners:
-                                    p['ratingvalue'] = p['ratingvalue']+winRP
-                                    if p['did'] == winCap:
-                                        p['ratingvalue'] = p['ratingvalue']+capWinRP
-                                elif p['did'] in losers:
-                                    p['ratingvalue'] = p['ratingvalue']+loseRP
-                                    if p['did'] == loseCap:
-                                        p['ratingvalue'] = p['ratingvalue']+capLoseRP
-                                if 'ratinghistory' not in p:
-                                    p['ratinghistory'] = []
-                                if p['ratinghistory'] in [None,'']:
-                                    p['ratinghistory'] = []
-                                p['ratinghistory'].append({
-                                    'matchref': p['lastgameref'],
-                                    'matchdate': p['lastgamedate'],
-                                    'ratingbefore': p['ratingprevious'],
-                                    'ratingafter': p['ratingvalue']
-                                })
-                                if 'ratinghistory' in p and len(p['ratinghistory']) > 40:
-                                     p['ratinghistory'][:] = p['ratinghistory'][-40:]
-                                p['lastgamedate'] = match['startdate']
-                                p['lastgameref'] = match['gameref']
+                            p['ratingprevious'] = p['ratingvalue']
+                            if p['did'] in winners:
+                                p['ratingvalue'] = p['ratingvalue']+winRP
+                                if p['did'] == winCap:
+                                    p['ratingvalue'] = p['ratingvalue']+capWinRP
+                            elif p['did'] in losers:
+                                p['ratingvalue'] = p['ratingvalue']+loseRP
+                                if p['did'] == loseCap:
+                                    p['ratingvalue'] = p['ratingvalue']+capLoseRP
+                            if 'ratinghistory' not in p:
+                                p['ratinghistory'] = []
+                            if p['ratinghistory'] in [None,'']:
+                                p['ratinghistory'] = []
+                            p['ratinghistory'].append({
+                                'matchref': p['lastgameref'],
+                                'matchdate': p['lastgamedate'],
+                                'ratingbefore': p['ratingprevious'],
+                                'ratingafter': p['ratingvalue']
+                            })
+                            if 'ratinghistory' in p:
+                                p['ratinghistory'] = sorted(p['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
+                                if len(p['ratinghistory']) > 40:
+                                    p['ratinghistory'][:] = p['ratinghistory'][-40:]
+                            p['lastgamedate'] = match['startdate']
+                            p['lastgameref'] = match['gameref']
+                            if player > 0:
+                                return p
         return rkData
 
     def returnPIDs(self, players):
@@ -2766,7 +2777,7 @@ class PUG(commands.Cog):
         capSummary = ''
         report = {'cap_name':'','cap_rp':'','players':'','players_rp':'','players_sum':'','player_name':'','player_last':'','player_hist':''}
         if len(players) > 0:
-            cap = self.ratingsPlayerDataHandler('rkget',mode,players[0])
+            cap = self.ratingsPlayerDataHandler('rkget', mode, players[0])
             if cap['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
                 capSummary = 'Current RP: {0} {2} Previous RP: {1}'.format(cap['ratingvalue'],cap['ratingprevious'],updn(cap['ratingvalue'],cap['ratingprevious']))
             else:
@@ -2776,7 +2787,7 @@ class PUG(commands.Cog):
             report['cap_name'] = cap['dlastnick']
             report['cap_rp'] = capSummary
         elif playerid > 0:
-            player = self.ratingsPlayerDataHandler('rkget',mode,playerid)
+            player = self.ratingsPlayerDataHandler('rkget', mode, playerid)
             report['player_name'] = player['dlastnick']
             if len(player['lastgamedate']) > 0:
                 g_startdate = datetime.fromisoformat(player['lastgamedate']).strftime('%d/%b/%Y @ %H:%M')
@@ -2849,28 +2860,99 @@ class PUG(commands.Cog):
         else:
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if type(player) is int:
+            pid = player
+            pdn = ''
+        else:
+            pid = player.id
+            pdn = player.display_name
+        if 'rankedgames' in rkData:
+            for x in rkData['rankedgames']:
+                if 'mode' not in x:
+                    self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+                    rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode'] # update formatting
-                    if (action == 'rkget'):
-                        if type(player) is int:
-                            pid = player
-                        else:
-                            pid = player.id
+                    if action == 'rkget' or action == 'rkrecalc':
+                        msg = 'Error - Player not registered for ranked games in {0}'.format(mode)
                         if pid in x['registrations']:
                             for r in x['ratings']:
                                 if r['did'] == pid:
-                                    return r
-                    elif (action == 'rkset'):
-                        if player.id not in x['registrations']:
-                            x['registrations'].append(player.id) # register player as eligible
-                            log.debug('{0}({1},{2},{3},{4}) - registering new pid for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
+                                    if action == 'rkget':
+                                        return r
+                                    elif action == 'rkrecalc':
+                                        admsets = []
+                                        log.debug('ratingsPlayerDataHandler(rkrecalc) - Recalculating rank for {0}'.format(r['dlastnick']))
+                                        if 'ratinghistory' in r:
+                                            history = sorted(r['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate']))
+                                        if rating == 0:
+                                            # Find seed rating
+                                            if r['ratingprevious'] == 0:
+                                                rating = r['ratingvalue']
+                                                rating_date = r['ratingdate']
+                                            elif len(history):
+                                                for h in history:
+                                                    if h['matchref'] == 'admin-set':
+                                                        if rating == 0:
+                                                            rating = h['ratingafter']
+                                                            rating_date = h['matchdate']
+                                                        admsets.append(h)
+                                        else:
+                                            rating_date = (datetime.fromisoformat(r['ratingdate']) - timedelta(minutes=5)).isoformat()
+                                        if rating == 0:
+                                            return 'Initial seed rating could not be found for {0}, please provide a seed rating.'.format(r['dlastnick'])
+                                        log.debug('ratingsPlayerDataHandler(rkrecalc) - Seed rating for {0} = {1}'.format(r['dlastnick'],rating))
+                                        r['ratinghistory'] = admsets # Reset player rating history to admin-set only
+                                        msg = ''
+                                        r['ratingdate'] = rating_date
+                                        r['ratingvalue'] = rating
+                                        r['ratingprevious'] = 0
+                                        matches = sorted(x['games'], key=lambda g: datetime.fromisoformat(g['startdate']))
+                                        for m in matches:
+                                            if pid in m['teamred'] or pid in m['teamblue']:
+                                                if len(msg) == 0:
+                                                    g_date = datetime.fromisoformat(rating_date).strftime('%d/%b/%Y @ %H:%M')
+                                                    msg = 'RP recalculated for {0}:\n> Seed rating on {1}: **{2}**\n'.format(r['dlastnick'],g_date,rating)
+                                                if m['completed']:
+                                                    # Determine whether rating has been adjusted before sending to recalc
+                                                    for aset in admsets:
+                                                        if aset['matchdate'] > r['lastgamedate'] and m['startdate'] > aset['matchdate']:
+                                                            log.debug('ratingsPlayerDataHandler(rkrecalc) - admin adjusted rating present between matches - adjusting seed for {0} without adjusting history'.format(r['dlastnick']))
+                                                            r['ratingdate'] = aset['matchdate']
+                                                            r['ratingprevious'] = r['ratingvalue']
+                                                            r['ratingvalue'] = aset['ratingafter']
+                                                            g_date = datetime.fromisoformat(aset['matchdate']).strftime('%d/%b/%Y %H:%M')
+                                                            msg = msg+'> Admin updated @ {0}: RP before: **{1}**; RP after: **{2}**\n'.format(g_date,r['ratingprevious'],r['ratingvalue'])
+                                                    if pid in m['teamred']:
+                                                        pteam = 'Red'
+                                                    else:
+                                                        pteam = 'Blue'
+                                                    if m['capred']['id'] == pid or m['capblue']['id'] == pid:
+                                                        pteam = pteam+', captain'
+                                                    g_date = datetime.fromisoformat(m['startdate']).strftime('%d/%b/%Y %H:%M')
+                                                    log.debug('ratingsPlayerDataHandler(rkrecalc) - {0} present in match {1} - calculating RP'.format(r['dlastnick'],m['gameref']))
+                                                    rk = self.pugInfo.applyRankedScoring(x, mode=mode, match=m, player=pid)
+                                                    log.debug('ratingsPlayerDataHandler(rkrecalc) - Updated player data from applyRankedScoring() for match: {0} = {1}; RP before: {2}, RP after: {3}'.format(m['gameref'],rk['lastgameref'],rk['ratingprevious'],rk['ratingvalue']))
+                                                    if 'did' in rk and rk['did'] == pid:
+                                                        r = rk
+                                                    msg = msg+'> Match: `{0}` @ {1} (team {2}); Score: Red {3} - {4} Blue. RP before: **{5}**; RP after: **{6}**\n'.format(r['lastgameref'],g_date,pteam,m['scorered'],m['scoreblue'],r['ratingprevious'],r['ratingvalue'])
+                                                else:
+                                                    log.debug('ratingsPlayerDataHandler(rkrecalc) - {0} present in voided/incomplete match {1} - ignoring RP'.format(r['dlastnick'],m['gameref']))
+
+                                        if len(msg) == 0:
+                                            msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating)
+                    elif action == 'rkset':
+                        if pid not in x['registrations']:
+                            x['registrations'].append(pid) # register player as eligible
+                            log.debug('{0}({1},{2},{3},{4}) - registering new pid for {5}.'.format(action,pid,mode,rating,toggle,pdn))
                         rkUpdate = False
                         for r in x['ratings']:
-                            if r['did'] == player.id:
-                                log.debug('{0}({1},{2},{3},{4}) - updating existing rank data for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
-                                r['dlastnick'] = player.display_name
+                            if r['did'] == pid:
+                                log.debug('{0}({1},{2},{3},{4}) - updating existing rank data for {5}.'.format(action,pid,mode,rating,toggle,pdn))
+                                if len(pdn):
+                                    r['dlastnick'] = pdn
                                 r['ratingdate'] = datetime.now().isoformat()
                                 if 'ratinghistory' in r:
                                     if r['ratinghistory'] in [None,'']:
@@ -2895,10 +2977,10 @@ class PUG(commands.Cog):
                                 r['lastgameref'] = ''
                                 rkUpdate = True
                         if rkUpdate == False: # new entry required
-                            log.debug('{0}({1},{2},{3},{4}) - adding new rank data for {5}.'.format(action,player.id,mode,rating,toggle,player.display_name))
+                            log.debug('{0}({1},{2},{3},{4}) - adding new rank data for {5}.'.format(action,pid,mode,rating,toggle,pdn))
                             x['ratings'].append({
-                                'did': player.id,
-                                'dlastnick': player.display_name,
+                                'did': pid,
+                                'dlastnick': pdn,
                                 'ratingdate': datetime.now().isoformat(),
                                 'ratingprevious': 0,
                                 'ratingvalue': rating,
@@ -2906,14 +2988,14 @@ class PUG(commands.Cog):
                                 'lastgamedate': '',
                                 'lastgameref': ''
                             })
-                        msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,player.display_name,player.id,mode)
-                    elif (action == 'rkdel'):
+                        msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,pdn,pid,mode)
+                    elif action == 'rkdel':
                         if player.id in x['registrations']:
-                            x['registrations'].remove(player.id)
+                            x['registrations'].remove(pid)
                         for r in x['ratings']:
-                            if r['did'] == player.id:
+                            if r['did'] == pid:
                                 x['ratings'].remove(r)
-                        msg = 'Ranked player rating removed for {0} (id:{1}) in game mode {2}'.format(player.display_name,player.id,mode)
+                        msg = 'Ranked player rating removed for {0} (id:{1}) in game mode {2}'.format(pdn,pid,mode)
                     else:
                         msg = 'Unsupported action called.'
         if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
@@ -3201,6 +3283,19 @@ class PUG(commands.Cog):
             await ctx.send('Use a "force" suffix to this command to forcefully remove a rank while a match is in progress.')
         else:
             msg = self.ratingsPlayerDataHandler('rkdel',mode,player,0,force)
+            await ctx.send(msg)
+        return True
+    
+    @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkrecalc(self, ctx, player: discord.Member, mode: str = 'rASPlus', seed: int = 0):
+        """Recalculates RP of a player: PlayerNick GameMode(e.g. rASPlus) <optional seed value>"""
+        if self.pugInfo.pugLocked and self.pugInfo.ranked:
+            await ctx.send('RP cannot be reclculated while a ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        else:
+            await ctx.send('Recalculating RP...')
+            msg = self.ratingsPlayerDataHandler('rkrecalc',mode,player,seed)
             await ctx.send(msg)
         return True
 
