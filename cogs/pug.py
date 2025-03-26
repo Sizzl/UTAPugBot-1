@@ -2805,6 +2805,8 @@ class PUG(commands.Cog):
                             pteam = 'Red'
                         else:
                             pteam = 'Blue'
+                        if matchInfo['capred']['id'] == playerid or matchInfo['capblue']['id'] == playerid:
+                            pteam = pteam+', captain'
                         if (matchInfo['completed']):
                             pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Score: Red {3} - {4} Blue;\n> RP before: **{5}** {6} RP after: **{7}**\n'.format(player['lastgameref'],g_startdate,pteam,matchInfo['scorered'],matchInfo['scoreblue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
                         else:
