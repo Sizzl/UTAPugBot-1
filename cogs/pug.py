@@ -1984,15 +1984,7 @@ class AssaultPug(PugTeams):
                             p['lastgamedate'] = p['ratingdate']
                     if p['did'] == player or (player == 0 and p['lastgameref'] != match['gameref']):
                         if p['did'] in winners or p['did'] in losers:
-                            p['ratingprevious'] = p['ratingvalue']
-                            if p['did'] in winners:
-                                p['ratingvalue'] = p['ratingvalue']+winRP
-                                if p['did'] == winCap:
-                                    p['ratingvalue'] = p['ratingvalue']+capWinRP
-                            elif p['did'] in losers:
-                                p['ratingvalue'] = p['ratingvalue']+loseRP
-                                if p['did'] == loseCap:
-                                    p['ratingvalue'] = p['ratingvalue']+capLoseRP
+                            # Move last game to history
                             if 'ratinghistory' not in p:
                                 p['ratinghistory'] = []
                             if p['ratinghistory'] in [None,'']:
@@ -2003,6 +1995,16 @@ class AssaultPug(PugTeams):
                                 'ratingbefore': p['ratingprevious'],
                                 'ratingafter': p['ratingvalue']
                             })
+                            # Update latest rating block
+                            p['ratingprevious'] = p['ratingvalue']
+                            if p['did'] in winners:
+                                p['ratingvalue'] = p['ratingvalue']+winRP
+                                if p['did'] == winCap:
+                                    p['ratingvalue'] = p['ratingvalue']+capWinRP
+                            elif p['did'] in losers:
+                                p['ratingvalue'] = p['ratingvalue']+loseRP
+                                if p['did'] == loseCap:
+                                    p['ratingvalue'] = p['ratingvalue']+capLoseRP
                             if 'ratinghistory' in p:
                                 p['ratinghistory'] = sorted(p['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
                                 if len(p['ratinghistory']) > 40:
@@ -2903,7 +2905,7 @@ class PUG(commands.Cog):
                                             rating_date = (datetime.fromisoformat(r['ratingdate']) - timedelta(minutes=5)).isoformat()
                                         if rating == 0:
                                             return 'Initial seed rating could not be found for {0}, please provide a seed rating.'.format(r['dlastnick'])
-                                        log.debug('ratingsPlayerDataHandler(rkrecalc) - Seed rating for {0} = {1}'.format(r['dlastnick'],rating))
+                                        log.debug('ratingsPlayerDataHandler({0}) - Seed rating for {1} = {2}'.format(mode,r['dlastnick'],rating))
                                         r['ratinghistory'] = admsets # Reset player rating history to admin-set only
                                         msg = ''
                                         r['ratingdate'] = rating_date
@@ -2919,7 +2921,7 @@ class PUG(commands.Cog):
                                                     # Determine whether rating has been adjusted before sending to recalc
                                                     for aset in admsets:
                                                         if aset['matchdate'] > r['lastgamedate'] and m['startdate'] > aset['matchdate']:
-                                                            log.debug('ratingsPlayerDataHandler(rkrecalc) - admin adjusted rating present between matches - adjusting seed for {0} without adjusting history'.format(r['dlastnick']))
+                                                            log.debug('ratingsPlayerDataHandler({0}) - admin adjusted rating present between matches - adjusting seed for {1} without adjusting history'.format(mode,r['dlastnick']))
                                                             r['ratingdate'] = aset['matchdate']
                                                             r['ratingprevious'] = r['ratingvalue']
                                                             r['ratingvalue'] = aset['ratingafter']
@@ -2932,15 +2934,17 @@ class PUG(commands.Cog):
                                                     if m['capred']['id'] == pid or m['capblue']['id'] == pid:
                                                         pteam = pteam+', captain'
                                                     g_date = datetime.fromisoformat(m['startdate']).strftime('%d/%b/%Y %H:%M')
-                                                    log.debug('ratingsPlayerDataHandler(rkrecalc) - {0} present in match {1} - calculating RP'.format(r['dlastnick'],m['gameref']))
+                                                    log.debug('ratingsPlayerDataHandler({0}) - {1} present in match {2} - calculating RP'.format(mode,r['dlastnick'],m['gameref']))
                                                     rk = self.pugInfo.applyRankedScoring(x, mode=mode, match=m, player=pid)
-                                                    log.debug('ratingsPlayerDataHandler(rkrecalc) - Updated player data from applyRankedScoring() for match: {0} = {1}; RP before: {2}, RP after: {3}'.format(m['gameref'],rk['lastgameref'],rk['ratingprevious'],rk['ratingvalue']))
+                                                    log.debug('ratingsPlayerDataHandler({0}) - Updated player data from applyRankedScoring() for match: {1} = {2}; RP before: {3}, RP after: {4}'.format(mode,m['gameref'],rk['lastgameref'],rk['ratingprevious'],rk['ratingvalue']))
                                                     if 'did' in rk and rk['did'] == pid:
                                                         r = rk
                                                     msg = msg+'> Match: `{0}` @ {1} (team {2}); Score: Red {3} - {4} Blue. RP before: **{5}**; RP after: **{6}**\n'.format(r['lastgameref'],g_date,pteam,m['scorered'],m['scoreblue'],r['ratingprevious'],r['ratingvalue'])
                                                 else:
-                                                    log.debug('ratingsPlayerDataHandler(rkrecalc) - {0} present in voided/incomplete match {1} - ignoring RP'.format(r['dlastnick'],m['gameref']))
-
+                                                    log.debug('ratingsPlayerDataHandler({0}) - {1} present in voided/incomplete match {2} - ignoring RP'.format(mode,r['dlastnick'],m['gameref']))
+                                        if len(r['ratinghistory']):
+                                            r['ratinghistory'] = sorted(r['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
+                                            r['ratinghistory'] = r['ratinghistory'][:-1]
                                         if len(msg) == 0:
                                             msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating)
                     elif action == 'rkset':
@@ -2965,7 +2969,7 @@ class PUG(commands.Cog):
                                     r['lastgamedate'] = r['ratingdate']
                                 r['ratinghistory'].append({
                                     'matchref': r['lastgameref'],
-                                    'matchdate': r['ratingdate'],
+                                    'matchdate': r['lastgamedate'],
                                     'ratingbefore': r['ratingvalue'],
                                     'ratingafter': rating
                                 })
@@ -2999,8 +3003,10 @@ class PUG(commands.Cog):
                     else:
                         msg = 'Unsupported action called.'
         if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
+            log.debug('ratingsPlayerDataHandler({0}) - saved updated ratings'.format(mode))
             if (self.pugInfo.ranked): # reload data for current ranked mode
                 self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+                log.debug('ratingsPlayerDataHandler({0}) - loaded ratings back into memory'.format(mode))
         else:
             msg = 'Error - rank data could not be saved; check bot logs.'
         return msg
@@ -3592,6 +3598,12 @@ class PUG(commands.Cog):
             player = int(pid.group(1))
             matchref = ''
             mode = ''
+        else:
+            pid = re.search(r'<@(\d*)>', matchref)
+            if (pid):
+                player = int(pid.group(1))
+                matchref = ''
+                mode = ''
         if (mode in [None,'','last']):
             if mode == 'last' and len(matchref) == 0:
                 matchref = mode
@@ -3614,7 +3626,7 @@ class PUG(commands.Cog):
             reports = self.ratingsMatchReport(mode=mode,teamRed=teamRed,teamBlue=teamBlue,matchref=matchref)
         elif player not in ['',None]:
             if (pid):
-                reports = self.ratingsMatchReport(mode=mode,playerid=int(pid.group(1)))
+                reports = self.ratingsMatchReport(mode=mode,playerid=player)
             else:
                 reports = self.ratingsMatchReport(mode=mode,playerid=player.id)
         else:

@@ -244,7 +244,7 @@
         {
           "did": 189485300001538048, // discord ID of the player
           "dlastnick": "Sizzl",      // discord local display name
-          "ratingdate": "2025-02-14T13:37:00.0000000+00:00", // date stamp rating was set
+          "ratingdate": "2025-02-14T13:37:00.0000000+00:00", // date stamp rating was set or updated by an admin
           "ratingvalue": 400,        // current rating value
           "ratingprevious": 0,       // previous rating, 0 if this is the first entry for a player
           "ratinghistory":[          // last 30 ratings as a list of objects
@@ -256,7 +256,7 @@
             }
           ],
           "lastgamedate": "",        // last game date - if empty, then player has just been registered with a rating
-          "lastgameref": ""          // game ref from API
+          "lastgameref": ""          // game ref from API, or 'admin-set'
         },
         {
           "did": 124605651006521344,
