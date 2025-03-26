@@ -2922,8 +2922,8 @@ class PUG(commands.Cog):
                                                 if m['completed']:
                                                     # Determine whether rating has been adjusted before sending to recalc
                                                     for aset in admsets:
-                                                        if aset['matchdate'] > r['lastgamedate'] and m['startdate'] > aset['matchdate']:
-                                                            log.debug('ratingsPlayerDataHandler({0}) - admin adjusted rating present between matches - adjusting seed for {1} without adjusting history'.format(mode,r['dlastnick']))
+                                                        if datetime.fromisoformat(aset['matchdate']) > datetime.fromisoformat(r['lastgamedate']) and datetime.fromisoformat(m['startdate']) > datetime.fromisoformat(aset['matchdate']):
+                                                            log.debug('ratingsPlayerDataHandler({0}) - admin adjusted rating present between matches (last game: {1}; update date: {2}; next match started: {3}). Adjusting seed for {4} to {5} without adjusting history'.format(mode,r['lastgamedate'],aset['matchdate'],m['startdate'],r['dlastnick'],aset['ratingafter']))
                                                             r['ratingdate'] = aset['matchdate']
                                                             r['ratingprevious'] = r['ratingvalue']
                                                             r['ratingvalue'] = aset['ratingafter']
@@ -3297,13 +3297,17 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkrecalc(self, ctx, player: discord.Member, mode: str = 'rASPlus', seed: int = 0):
+    async def rkrecalc(self, ctx, player: discord.Member, mode: str = 'rASPlus', seed: int = 0, pid: int = 0):
         """Recalculates RP of a player: PlayerNick GameMode(e.g. rASPlus) <optional seed value>"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
             await ctx.send('RP cannot be reclculated while a ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
         else:
-            await ctx.send('Recalculating RP...')
-            msg = self.ratingsPlayerDataHandler('rkrecalc',mode,player,seed)
+            if pid > 0:
+                await ctx.send('Recalculating RP (override ID={0})...'.format(pid))
+                msg = self.ratingsPlayerDataHandler('rkrecalc',mode,pid,seed)
+            else:
+                await ctx.send('Recalculating RP...')
+                msg = self.ratingsPlayerDataHandler('rkrecalc',mode,player,seed)
             await ctx.send(msg)
         return True
 
