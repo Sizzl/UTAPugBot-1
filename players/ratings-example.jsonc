@@ -52,62 +52,74 @@
           {
             "map": "AS-AsthenosphereSE2", // name of the map without file extension
             "order": 1,                   // which "pick order" slot this will be selected (0 is any)
-            "weight": 1                   // weighting of this choice (1 or above) - higher weight = higher chance of being picked
+            "weight": 1,                  // weighting of this choice (1 or above) - higher weight = higher chance of being picked
+            "desirability": 100           // desirability values will automatically be set by the bot to automatically adjust maps from becoming randomly picked too often. They will start off at the weight value and decrease until all maps in a pool are below weight value.
           },
           {
             "map": "AS-Ballistic",
             "order": 1,
-            "weight": 2
+            "weight": 2,
+            "desirability": 200
           },
           {
             "map": "AS-BridgePV_beta8",
             "order": 1,
-            "weight": 2
+            "weight": 2,
+            "desirability": 200
           },
           {
             "map": "AS-NaliColony_beta5",
             "order": 1,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-O-MG_pv3a",
             "order": 1,
-            "weight": 1
+            "weight": 1,
+            "desirability": 25
           },
           {
             "map": "AS-AutoRIPSE_beta7b",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Desolate][",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-GolgothaAL",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Riverbed]l[AL",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Desertstorm",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Golgotha][AL",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-TheDungeon]l[AL",
             "order": 2,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Siege][",
@@ -117,17 +129,20 @@
           {
             "map": "AS-AutoRIPSE_beta7b",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Desolate][",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-GolgothaAL",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Riverbed]l[AL",
@@ -137,92 +152,110 @@
           {
             "map": "AS-Desertstorm",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Golgotha][AL",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-TheDungeon]l[AL",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Siege][",
             "order": 3,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Navarone_EXT5",
             "order": 4,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-TheProjectEXT3",
             "order": 4,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Templar_preview6",
             "order": 4,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-DustbowlAL-NE_beta2",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-TheScarabSE",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-LavaFort][PE_b18",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Vampire",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-ColderSteelPE_beta4a",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-SaqqaraPE_beta4a1",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-SnowDunes_Delta",
             "order": 5,
-            "weight": 2
+            "weight": 2,
+            "desirability": 100
           },
           {
             "map": "AS-Frigate",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-HiSpeed",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Mazon",
             "order": 5,
-            "weight": 1
+            "weight": 1,
+            "desirability": 100
           },
           {
             "map": "AS-Submarinebase][",
             "order": 5,
-            "weight": 2
+            "weight": 2,
+            "desirability": 100
           }
         ],
         "cooldowncount": 0,    // adds maps to a cool-down pool after they are first selected, cycled back into operation after this many games (max: 5)

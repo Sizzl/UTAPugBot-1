@@ -336,6 +336,8 @@ class PugMaps:
         self.maxMaps = maxMaps
         self.rankedMode = rankedMode
         self.autoPickShuffled = False
+        self.desirabilityReduction = 2
+        self.desirabilityMultiplier = 100
         self.pickMode = pickMode
         self.availableMapsList = mapList
         self.filteredMapsList = mapList
@@ -481,10 +483,22 @@ class PugMaps:
             for i in range(self.maxMaps):
                 opts = []
                 pick = None
+                dCheck = 0
+                dCount = 0
+                for m in self.mapListWeighting:
+                    # Run through ordered picks only, to test desirability
+                    if (int(m['order']) == (i+1)) and m['map'] not in self.maps:
+                        dCheck += 1
+                        if 'desirability' in m:
+                            if m['desirability'] < m['weight']*self.desirabilityMultiplier:
+                                dCount +=1
                 for m in self.mapListWeighting:
                     if (int(m['order']) == (i+1) or int(m['order']) == 0) and m['map'] not in self.maps:
                         if 'weight' in m and m['weight'] > 0:
-                            for x in range(m['weight']):
+                            if 'desirability' not in m or dCount == dCheck:
+                                m['desirability'] = m['weight']*self.desirabilityMultiplier
+                            m['desirability'] = max(1, min(int(m['desirability']), 500))
+                            for x in range(m['desirability']):
                                 opts.append(m['map'])
                         else:
                             opts.append(m['map'])
@@ -496,6 +510,11 @@ class PugMaps:
                 if pick not in [None,'']:
                     log.debug('autoPickRankedMaps() - Adding map {0} of {1} [order preference {2}] - {3}'.format(str(len(self.maps)+1),str(self.maxMaps),str((i+1)),pick))
                     self.maps.append(pick)
+                    for m in self.mapListWeighting:
+                        if m['map'] == pick:
+                            if 'desirability' not in m:
+                                m['desirability'] = m['weight']*self.desirabilityMultiplier
+                            m['desirability'] = max(1, int(round(m['desirability']/self.desirabilityReduction,0)))
             if self.autoPickShuffled:
                 random.shuffle(self.maps)
             return True
@@ -1878,6 +1897,7 @@ class AssaultPug(PugTeams):
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode'] # update formatting
+                    x['maps']['maplist'] = self.maps.mapListWeighting
                     if 'games' not in x:
                         x['games'] = []
                     for g in x['games']:
@@ -2326,6 +2346,7 @@ class PUG(commands.Cog):
             # Need to pick maps.
             if (self.pugInfo.ranked):
                 self.pugInfo.maps.autoPickRankedMaps()
+                self.pugInfo.ratings['maps']['maplist'] = self.pugInfo.maps.mapListWeighting
                 await self.processPugStatus(ctx) # loop back around
             else:
                 await ctx.send(self.format_pick_next_map(mention=True))
