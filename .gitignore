@@ -13,6 +13,7 @@ default_server.json
 default_server.xml
 *Copy*.json
 *bak.json
+images/*
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 

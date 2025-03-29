@@ -478,7 +478,8 @@ class PugMaps:
     #########################################################################################
     # Picking a set of maps for a pug
     #########################################################################################
-    def autoPickRankedMaps(self):
+    def autoPickRankedMaps(self, simulate: bool = False):
+        simulatedMaps = []
         if self.rankedMode and self.filteredMapsList not in [None,'']:
             for i in range(self.maxMaps):
                 opts = []
@@ -487,13 +488,13 @@ class PugMaps:
                 dCount = 0
                 for m in self.mapListWeighting:
                     # Run through ordered picks only, to test desirability
-                    if (int(m['order']) == (i+1)) and m['map'] not in self.maps:
+                    if (int(m['order']) == (i+1)) and (m['map'] not in self.maps and m['map'] not in simulatedMaps):
                         dCheck += 1
                         if 'desirability' in m:
                             if m['desirability'] < m['weight']*self.desirabilityMultiplier:
                                 dCount +=1
                 for m in self.mapListWeighting:
-                    if (int(m['order']) == (i+1) or int(m['order']) == 0) and m['map'] not in self.maps:
+                    if (int(m['order']) == (i+1) or int(m['order']) == 0) and (m['map'] not in self.maps and m['map'] not in simulatedMaps):
                         if 'weight' in m and m['weight'] > 0:
                             if 'desirability' not in m or dCount == dCheck:
                                 m['desirability'] = m['weight']*self.desirabilityMultiplier
@@ -505,18 +506,27 @@ class PugMaps:
                 if len(opts):
                     pick = random.choice(opts)
                 else:
-                    while (pick == None or pick in self.maps):
+                    while (pick == None or pick in self.maps or pick in simulatedMaps):
                         pick = random.choice(self.filteredMapsList) # fallback to whole list if position has failed to pick
                 if pick not in [None,'']:
-                    log.debug('autoPickRankedMaps() - Adding map {0} of {1} [order preference {2}] - {3}'.format(str(len(self.maps)+1),str(self.maxMaps),str((i+1)),pick))
-                    self.maps.append(pick)
+                    if simulate:
+                        log.debug('autoPickRankedMaps() - Simulating map pick {0} of {1} [order preference {2}] - {3}'.format(str(len(simulatedMaps)+1),str(self.maxMaps),str((i+1)),pick))
+                        simulatedMaps.append(pick)
+                    else:
+                        log.debug('autoPickRankedMaps() - Adding map {0} of {1} [order preference {2}] - {3}'.format(str(len(self.maps)+1),str(self.maxMaps),str((i+1)),pick))
+                        self.maps.append(pick)
                     for m in self.mapListWeighting:
                         if m['map'] == pick:
                             if 'desirability' not in m:
                                 m['desirability'] = m['weight']*self.desirabilityMultiplier
                             m['desirability'] = max(1, int(round(m['desirability']/self.desirabilityReduction,0)))
             if self.autoPickShuffled:
-                random.shuffle(self.maps)
+                if simulate:
+                    random.shuffle(simulatedMaps)
+                else:
+                    random.shuffle(self.maps)
+            if simulate:
+                return simulatedMaps
             return True
         return False
     
@@ -3471,6 +3481,22 @@ class PUG(commands.Cog):
                 await ctx.send('Error - a ranked map limit could not be saved - game mode not found.')
             else:
                 await ctx.send('Error - a ranked map limit could not be saved; check bot logs.')
+        return True
+    
+    @commands.hybrid_command()
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkmapsimulation(self, ctx, count=5):
+        """Simulates a given number of auto-picks for the active ranked mode, using rules for that mode"""
+        if not self.pugInfo.ranked:
+            await ctx.send('Ranked mode must be active for map pick simulations to occur.')
+            return True
+        cachedMLR = self.pugInfo.maps.mapListWeighting
+        count = max(1, min(count, 30))
+        await ctx.send('Simulating map picks for {0} matches:'.format(count))
+        for x in range(count):
+            await ctx.send('**Simulation {0}**: {1}'.format(x+1,PLASEP.join(self.pugInfo.maps.autoPickRankedMaps(simulate=True))))
+        self.pugInfo.maps.mapListWeighting = cachedMLR # return back to current state
         return True
 
     @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
