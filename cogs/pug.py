@@ -3374,9 +3374,10 @@ class PUG(commands.Cog):
             else:
                 await ctx.send('Recalculating RP...')
                 msg = self.ratingsPlayerDataHandler('rkrecalc',mode,player,seed)
-            if len(msg) > 1024:
+            if len(msg) > 2000:
                 for m in msg.split('\n'):
-                    await ctx.send(m)
+                    if len(m):
+                        await ctx.send(m)
             else:
                 await ctx.send(msg)
         return True
