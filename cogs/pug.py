@@ -2905,11 +2905,14 @@ class PUG(commands.Cog):
         else:
             pid = player.id
             pdn = player.display_name
+        rkReload = False
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' not in x:
-                    self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-                    rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+                    rkReload = True
+        if rkReload:
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
