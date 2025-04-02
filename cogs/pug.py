@@ -3009,8 +3009,9 @@ class PUG(commands.Cog):
                                                     msg = msg+'> Admin updated @ {0}: RP before: **{1}**; RP after: **{2}**\n'.format(g_date,r['ratingprevious'],r['ratingvalue'])
                                                     g_last = datetime.fromisoformat(aset['matchdate'])
                                         if len(r['ratinghistory']):
-                                            r['ratinghistory'] = sorted(r['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
-                                            if r['ratinghistory'][-1]['matchref'] == r['lastgameref'] and r['ratinghistory'][-1]['matchdate'] == r['lastgamedate']:
+                                            r['ratinghistory'] = sorted(r['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate']))
+                                            last = r['ratinghistory'][-1]
+                                            if last['matchref'] == r['lastgameref'] and last['matchdate'] == r['lastgamedate']:
                                                 r['ratinghistory'] = r['ratinghistory'][:-1]
                                         if len(msg) == 0:
                                             msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating)
