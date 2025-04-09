@@ -3659,7 +3659,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rklist'])
     @commands.guild_only()
-    @commands.check(admin.hasManagerRole_Check)
     async def rkrecent(self, ctx, mode: str = '', last: int = 5, completed: str = ''):
         """Returns recent ranked matches"""
         if (mode in [None,'']):
@@ -3711,7 +3710,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rkreport'])
     @commands.guild_only()
-    @commands.check(admin.hasManagerRole_Check)
     async def rkrp(self, ctx, mode: str = '', matchref: str = '', player: discord.Member = None):
         """Returns match and player RP reports"""
         pid = re.search(r'<@(\d*)>', mode)
