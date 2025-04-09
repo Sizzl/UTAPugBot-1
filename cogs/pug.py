@@ -1341,7 +1341,7 @@ class GameServer:
             if self.lastSetupResult == 'Completed':
                 self.matchInProgress = False
                 self.endMatchPerformed = True
-                self.lastMatchCode = self.matchCode
+                self.lastMatchCode = '{0}'.format(self.matchCode)
                 self.matchCode = ''
                 return True
 
@@ -1406,6 +1406,8 @@ class AssaultPug(PugTeams):
         super().__init__(numPlayers, pickModeTeams)
         self.name = 'Assault'
         self.mode = 'stdAS'
+        self.lastPlayedMode = 'stdAS'
+        self.matchReportPending = False
         self.desc = self.name + ': ' + self.mode + ' PUG'
         self.servers = [GameServer(configFile,self)]
         self.serverIndex = 0
@@ -1615,6 +1617,7 @@ class AssaultPug(PugTeams):
             fmt.append('Maps ({}):\n{}'.format(self.maps.maxMaps, self.maps.format_current_maplist))
             self.lastPugStr = '\n'.join(fmt)
             self.lastPugTimeStarted = datetime.now()
+            self.lastPlayedMode = self.mode
             if self.ranked:
                 log.debug('storeLastPug(viaReset={5}) - Calling via matchReady - storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False), str(viaReset)))
                 if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), False):
@@ -1637,6 +1640,7 @@ class AssaultPug(PugTeams):
                 else:
                     if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), self.gameServer.endMatchPerformed):
                         log.debug('storeRankedPug() - Stored game successfully via storeLastPug (update, natural conclusion)')
+                        self.matchReportPending = True
                     else:
                         log.debug('storeRankedPug() - Failed to store game successfully via storeLastPug (update, natural conclusion)')
             return True
@@ -2093,6 +2097,9 @@ class PUG(commands.Cog):
         self.updateGameServer.add_exception_type(asyncpg.PostgresConnectionError)
         self.updateGameServer.start()
 
+        # Start the match report loop task
+        self.sendMatchReport.start()
+
         # Start the GameSpy query loops
         self.updateUTQueryReporter.start()
         self.updateUTQueryStats.start()
@@ -2107,6 +2114,7 @@ class PUG(commands.Cog):
 
     def cog_unload(self):
         self.updateGameServer.cancel()
+        self.sendMatchReport.cancel()
         self.updateUTQueryReporter.cancel()
         self.updateUTQueryStats.cancel()
         self.updateGuildEmojis.cancel()
@@ -2167,6 +2175,23 @@ class PUG(commands.Cog):
     @updateUTQueryStats.before_loop
     async def before_updateUTQueryStats(self):
         await self.bot.wait_until_ready()
+
+    @tasks.loop(seconds=10.0)
+    async def sendMatchReport(self):
+        if self.pugInfo.matchReportPending and self.pugInfo.pugLocked != True:
+            matchref = 'last'
+            if len(self.pugInfo.gameServer.lastMatchCode):
+                matchref = self.pugInfo.gameServer.lastMatchCode
+            elif len(self.pugInfo.gameServer.matchCode):
+                matchref = self.pugInfo.gameServer.matchCode
+            log.debug('Sending match report to {0}; last mode={1}; last matchref={2};'.format(self.activeChannel,self.pugInfo.lastPlayedMode,matchref))
+            self.pugInfo.matchReportPending = False
+            await self.rkrp(self.activeChannel, mode=self.pugInfo.lastPlayedMode, matchref=matchref)
+        return
+    
+    @sendMatchReport.after_loop
+    async def on_sendMatchReport_cancel(self):
+        self.pugInfo.matchReportPending = False
 
     @tasks.loop(minutes=5)
     async def updateGuildEmojis(self):
@@ -2736,7 +2761,7 @@ class PUG(commands.Cog):
                 if matchInfo['completed']:
                     ended = datetime.fromisoformat(matchInfo['enddate'])
                     embedInfo.add_field(name='Match ended',value=ended.strftime('%d/%b/%Y @ %H:%M'),inline=True)
-                    embedInfo.add_field(name='Duration',value=str(round(((ended-started).total_seconds()//60)%60,0))+' mins',inline=True)
+                    embedInfo.add_field(name='Duration',value='{0} mins'.format(getDuration(started,ended,'minutes')),inline=True)
                     embedInfo.color = discord.Color.brand_green()
                 else:
                     embedInfo.add_field(name='Status',value='Incomplete / Void',inline=True)
@@ -2812,7 +2837,7 @@ class PUG(commands.Cog):
         if len(players) > 0:
             cap = self.ratingsPlayerDataHandler('rkget', mode, players[0])
             if cap['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
-                capSummary = 'Current RP: {0} {2} Previous RP: {1}'.format(cap['ratingvalue'],cap['ratingprevious'],updn(cap['ratingvalue'],cap['ratingprevious']))
+                capSummary = 'RP: {0} {2} Previous RP: {1}'.format(cap['ratingvalue'],cap['ratingprevious'],updn(cap['ratingvalue'],cap['ratingprevious']))
             else:
                 for h in cap['ratinghistory']:
                     if h['matchref'].upper() == matchref.upper() or len(matchref) == 0:
@@ -2826,7 +2851,7 @@ class PUG(commands.Cog):
                 g_startdate = datetime.fromisoformat(player['lastgamedate']).strftime('%d/%b/%Y @ %H:%M')
                 if player['lastgameref'] == 'admin-set':
                     if player['ratingprevious'] == 0:
-                        pSummary = 'Admin seeded rating of **{0}** on {0}\n'.format(player['ratingvalue'],g_startdate)
+                        pSummary = 'Admin seeded rating of **{0}** on {1}\n'.format(player['ratingvalue'],g_startdate)
                     else:
                         pSummary = 'Admin set rating on {0}: RP before: **{1}** {2} RP after: **{3}**\n'.format(g_startdate,player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
                 else:
@@ -2882,7 +2907,7 @@ class PUG(commands.Cog):
                 report['players'] = report['players']+player['dlastnick']+'\n'
                 report['players_sum'] = report['players_sum']+'**'+player['dlastnick']+'**\n> '
                 if player['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
-                    pSummary = 'Current RP: {0} {2} Previous RP: {1}\n'.format(player['ratingvalue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']))
+                    pSummary = 'RP: {0} {2} Previous RP: {1}\n'.format(player['ratingvalue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']))
                     report['players_rp'] = report['players_rp']+pSummary
                     report['players_sum'] = report['players_sum']+pSummary
                 else:
@@ -3734,7 +3759,9 @@ class PUG(commands.Cog):
                 await ctx.send('Player not found or seed rating not defined. Please provide a valid @player, or add with a rating.')
             else:
                 for r in reports:
-                    await ctx.message.channel.send(embed=r)
+                    await ctx.send(embed=r)
+                return True
+            return True
         return True
 
     @commands.hybrid_command(aliases=['rkvoid'])
@@ -3862,7 +3889,7 @@ class PUG(commands.Cog):
             for x, f in enumerate(embedInfo.fields):
                 if 'Objectives' in f.name:
                     embedInfo.remove_field(x)
-            await ctx.message.channel.send(embed=embedInfo)
+            await ctx.send(embed=embedInfo)
         else:
             await ctx.send(self.pugInfo.gameServer.format_game_server_status)
 
@@ -3919,7 +3946,7 @@ class PUG(commands.Cog):
                     for x, f in enumerate(embedInfo.fields):
                         if 'Objectives' in f.name:
                             embedInfo.remove_field(x)
-                    await ctx.message.channel.send(embed=embedInfo)
+                    await ctx.send(embed=embedInfo)
                 else:
                     await ctx.send('Could not resolve server from provided information.')
             else:

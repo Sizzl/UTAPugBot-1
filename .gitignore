@@ -14,6 +14,8 @@ default_server.xml
 *Copy*.json
 *bak.json
 images/*
+!images/uta-logo*.jpg
+!images/uta-logo*.png
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 
