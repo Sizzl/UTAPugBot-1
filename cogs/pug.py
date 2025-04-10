@@ -2041,8 +2041,8 @@ class AssaultPug(PugTeams):
                                     p['ratingvalue'] = p['ratingvalue']+capLoseRP
                             if 'ratinghistory' in p:
                                 p['ratinghistory'] = sorted(p['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
-                                if len(p['ratinghistory']) > 40:
-                                    p['ratinghistory'][:] = p['ratinghistory'][-40:]
+                                if len(p['ratinghistory']) > 50:
+                                    p['ratinghistory'][:] = p['ratinghistory'][-50:]
                             p['lastgamedate'] = match['startdate']
                             p['lastgameref'] = match['gameref']
                             if player > 0:
@@ -2919,9 +2919,12 @@ class PUG(commands.Cog):
         return report
     
     def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False):
-        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
-            rkData = {'rankedgames':[self.pugInfo.ratings]}
+        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
+            log.debug('ratingsPlayerDataHandler() using cached ratings')
+            rkData = {'rankedgames':[]}
+            rkData['rankedgames'].append(self.pugInfo.ratings)
         else:
+            log.debug('ratingsPlayerDataHandler() reloading data from JSON file')
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if type(player) is int:
@@ -3069,8 +3072,8 @@ class PUG(commands.Cog):
                                     'ratingbefore': r['ratingprevious'],
                                     'ratingafter': r['ratingvalue']
                                 })
-                                if len(r['ratinghistory']) > 40:
-                                     r['ratinghistory'][:] = r['ratinghistory'][-40:]
+                                if len(r['ratinghistory']) > 50:
+                                     r['ratinghistory'][:] = r['ratinghistory'][-50:]
                                 r['ratingprevious'] = r['ratingvalue']
                                 r['ratingvalue'] = rating
                                 r['lastgamedate'] = r['ratingdate']
@@ -3206,6 +3209,7 @@ class PUG(commands.Cog):
         else:
             await ctx.send('Selected server **{0}** could not be activated.'.format(idx))
         self.pugInfo.gameServer.useServer(-1, True,previousRef) # return to active server
+        return True
 
     @commands.hybrid_command(aliases=['stopserver'])
     @commands.check(admin.hasManagerRole_Check)
@@ -4090,6 +4094,13 @@ class PUG(commands.Cog):
         await ctx.send('Captains have been reset.')
         await self.processPugStatus(ctx)
 
+    @commands.hybrid_command(aliases=['jq'])
+    @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
+    async def queue(self, ctx, notes: str = ''):
+        await self.join(ctx, notes)
+        return
+    
     @commands.hybrid_command(aliases=['j'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
@@ -4103,9 +4114,9 @@ class PUG(commands.Cog):
             if notes.lower() == "nomic":
                 flags = notes.lower()
                 notesmsg = ' and tagged as "no mic"'
-            if notes.lower()[:1] == "q":
+            if notes.lower()[:1] == "q" and self.pugInfo.playersReady:
                 flags = 'queue'
-                notesmsg = ' to the next pug queue"'
+                notesmsg = ' to the queue for the next pug'
         if self.pugInfo.ranked:
             if not self.pugInfo.addRankedPlayer(player, flags):
                 if self.pugInfo.playersReady:
