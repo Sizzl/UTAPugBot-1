@@ -155,7 +155,6 @@ class PlayerChart(commands.Cog):
 
     @commands.hybrid_command(aliases=['rkstat','elo','rp','rating','ratings'])
     @commands.guild_only()
-    @commands.check(admin.hasManagerRole_Check)
     async def rkstats(self, ctx, player: discord.Member = None, mode: str = 'rASPlus'):
         """Shows player rank history within a game mode: PlayerNick GameMode(e.g. rASPlus)"""
         if player == None:
