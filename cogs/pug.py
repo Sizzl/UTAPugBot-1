@@ -1485,7 +1485,10 @@ class AssaultPug(PugTeams):
                 if 'capMode' in self.ratings and int(self.ratings['capMode']) > 0:
                     isCap = ' ('+CAPSIGN+')' if (p == self.red.captain or p == self.blue.captain) else ''
             return p.mention+isCap if mention else display_name(p)+isCap
-        numberedPlayers = ((i, name(p)) for i, p in enumerate(list(set(players)), 1) if p)
+        if self.ranked and self.ratings not in [None, '']:
+            numberedPlayers = ((i, name(p)) for i, p in enumerate(list(set(players)), 1) if p)
+        else:
+            numberedPlayers = ((i, name(p)) for i, p in enumerate(players, 1) if p)
         fmt = '**{0})** {1}' if number else '{1}'
         return PLASEP.join(fmt.format(*x) for x in numberedPlayers)
 
