@@ -1828,6 +1828,8 @@ class AssaultPug(PugTeams):
         playerRatings = []
         playerIDs = []
         playerMap = {}
+        if 'ratings' not in self.ratings:
+            self.setRankedMode(MODE_CONFIG[self.mode].isRanked, False)
         for p in self.players: playerIDs.append(p.id)
         for rankedPlayer in self.ratings['ratings']:
             if str(rankedPlayer['did']) in playerIDs or int(rankedPlayer['did']) in playerIDs:
@@ -1995,11 +1997,8 @@ class AssaultPug(PugTeams):
                 winCap = match['capblue']['id']
                 loseCap = match['capred']['id']
             if void:
-                for p in modeData['ratings']:
-                    if p['did'] in winners or p['did'] in losers:
-                        # To-Do: Flag for recalc
-                        p['ratingvalue'] = p['ratingprevious']
-                match['completed'] = False # This won't be returned yet
+                match['completed'] = False
+                log.debug('applyRankedScoring() - Voided match {0}'.format(match['gameref']))
             elif 'scoring' in modeData:
                 scoremode = modeData['scoring']['mode']
                 capWinRP = modeData['scoring']['capWin']
@@ -3770,10 +3769,41 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     async def rkvoidmatch(self, ctx, mode: str = '', matchref: str = ''):
-        await ctx.send(':soon:')
+        if (self.pugInfo.pugLocked):
+            await ctx.send('Matches cannot be voided while a game is in progress. Please try again later.')
+            return True
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
             return True
+        if (matchref in [None,'']):
+            await ctx.send('A valid match reference must be specified.')
+            return True
+        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
+            mode = self.pugInfo.mode
+        matchInfo = self.ratingsMatchInfo(mode,matchref)
+        if matchInfo == {}:
+            await ctx.send('The provided valid match reference could not be found.')
+        else:
+            started = datetime.fromisoformat(matchInfo['startdate'])
+            await ctx.send('{0} match `{1}` played on {2} at {3}...'.format(('Voiding' if matchInfo['completed'] else 'Re-establishing'),matchInfo['gameref'],started.strftime('%d/%m/%Y'),started.strftime('%H:%M:%S')))
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            rk = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            if 'rankedgames' in rk:
+                for x in rk['rankedgames']:
+                    if 'games' in x and 'mode' in x and x['mode'].upper() == mode.upper():
+                        for g in x['games']:
+                            if 'gameref' in g and g['gameref'].upper() == matchref.upper():
+                                g['completed'] = not g['completed']
+                                log.debug('rkvoidmatch() - Found match data in rk; completed={0}'.format(g['completed']))
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile,rk)
+            self.pugInfo.setRankedMode(MODE_CONFIG[self.pugInfo.mode].isRanked, False)
+            players = []
+            players.extend(matchInfo['teamred'])
+            players.extend(matchInfo['teamblue'])
+            for p in players:
+                player = self.ratingsPlayerDataHandler('rkget', mode, p)
+                msg = self.ratingsPlayerDataHandler('rkrecalc',mode,p,0)
+                await ctx.send('> Recalculated RP for {0}...\n> - Updated to last event: {1}'.format(player['dlastnick'],msg.split('\n')[-2].replace('> ','')))
         return True
 
     #########################################################################################
