@@ -1831,6 +1831,8 @@ class AssaultPug(PugTeams):
         playerRatings = []
         playerIDs = []
         playerMap = {}
+        if self.ratings in [None, '']:
+            self.setRankedMode(MODE_CONFIG[self.mode].isRanked, False)
         if 'ratings' not in self.ratings:
             self.setRankedMode(MODE_CONFIG[self.mode].isRanked, False)
         for p in self.players: playerIDs.append(p.id)
