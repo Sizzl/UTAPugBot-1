@@ -87,7 +87,8 @@ class PlayerChart(commands.Cog):
                 pid = pids[i]
                 matches = {'Time':[],'RP':[],'Player':[]}
                 if 'ratinghistory' in data and len(data['ratinghistory']):
-                    for h in data['ratinghistory']:
+                    history = sorted(data['ratinghistory'], key=lambda m: datetime.fromisoformat(m['matchdate']))
+                    for h in history:
                         h_date = datetime.fromisoformat(h['matchdate'])
                         matches['Time'].append(h_date)
                         matches['RP'].append(h['ratingafter'])
@@ -100,6 +101,10 @@ class PlayerChart(commands.Cog):
                             admsets['Time'].append(None)
                             admsets['RP'].append(None)
                             admsets['Player'].append(None)
+                if len(data['lastgamedate']):
+                    g_date = datetime.fromisoformat(data['lastgamedate'])
+                else:
+                    g_date = datetime.fromisoformat(data['ratingdate'])
                 matches['Time'].append(g_date)
                 matches['RP'].append(data['ratingvalue'])
                 matches['Player'].append(playername)

@@ -3688,7 +3688,10 @@ class PUG(commands.Cog):
                     if 'ratings' in x:
                         for p in x['ratings']:
                             players[p['did']] = p['dlastnick']
-        msg = 'Recent {0} ranked games:\n'.format(mode)
+        if len(games):
+            msg = 'Recent {0} ranked games:\n'.format(mode)
+        else:
+            msg = 'No games were found for mode: {0}, please specify a valid mode.'.format(mode)
         i = 0
         for g in games:
             teamred = []
@@ -3713,7 +3716,12 @@ class PUG(commands.Cog):
                 msg = msg+'{0}) Match Ref: `{1}`; Started {2}, {3}\n'.format(i, g['gameref'],g_startdate,g_enddate)
                 msg = msg+'> Red team (RP: {0}): {1}\n> Blue team (RP: {2}): {3}\n'.format(g['rpred'],PLASEP.join(teamred),g['rpblue'],PLASEP.join(teamblue))
                 msg = msg+'> Score :red_square: {0} - {1} :blue_square:\n\n'.format(g['scorered'],g['scoreblue'])
-        await ctx.send(msg) 
+        if len(msg) > 4000:
+            for m in msg.split('\n'):
+                if len(m):
+                    await ctx.send(m)
+        else:
+            await ctx.send(msg)
         return True
 
     @commands.hybrid_command(aliases=['rkreport'])
