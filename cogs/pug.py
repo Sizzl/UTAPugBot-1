@@ -6,9 +6,7 @@ from datetime import timezone
 from datetime import timedelta
 import functools
 import itertools
-import os
 import logging
-import sys
 import random
 import re
 import requests # should replace with aiohttp. See https://discordpy.readthedocs.io/en/latest/faq.html#what-does-blocking-mean
@@ -135,28 +133,9 @@ DISCORD_MD_ESCAPE_DICT = {c: '\\' + c for c in DISCORD_MD_CHARS}
 #########################################################################################
 # Logging
 #########################################################################################
-def setupPugLogging(name):
-    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    logfilename = 'log//{0}-{1}.log'.format(name,datetime.now().strftime('%Y-%m-%d'))
-    os.makedirs(os.path.dirname(logfilename), exist_ok=True)
-    handler = logging.FileHandler(filename=logfilename, encoding='utf-8', mode='w')
-    handler.setFormatter(formatter)
-    handler.setLevel(logging.DEBUG)
-
-    screen_handler = logging.StreamHandler(stream=sys.stdout)
-    screen_handler.setFormatter(formatter)
-    screen_handler.setLevel(logging.DEBUG)
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    if handler not in logger.handlers:
-        logger.addHandler(handler)
-    if screen_handler not in logger.handlers:
-        logger.addHandler(screen_handler)
-    return logger
-
-log = setupPugLogging('pugbot')
+log = admin.setupLogging('pugbot',logging.DEBUG,logging.DEBUG)
 log.info('Extension loaded with logging...')
+
 #########################################################################################
 # Utilities
 #########################################################################################

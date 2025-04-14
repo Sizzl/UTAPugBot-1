@@ -11,16 +11,19 @@ import re
 import hashlib
 
 DEFAULT_RATING_FILE = 'players/ratings.json'
+#########################################################################################
+# Logging
+#########################################################################################
+log = admin.setupLogging('charts',logging.DEBUG,logging.DEBUG)
+log.info('Extension loaded with logging...')
 
 #########################################################################################
 # Charting
 #########################################################################################
-
 class PlayerChart(commands.Cog):
     """Renders charts for Player related data"""
     def __init__(self, bot, ratingsFile=DEFAULT_RATING_FILE):
         self.bot = bot
-        self.log = bot.get_cog('Admin').setupLogging('charts')
         self.ratingsFile = ratingsFile
 
     def getRankStats(self, mode, rkData, pids):
@@ -199,7 +202,7 @@ class PlayerChart(commands.Cog):
                 ]
             )
             if os.path.exists('images/uta-logo-sm.jpg'):
-                self.log.debug('generateRankHistory() adding logo')
+                log.debug('generateRankHistory() adding logo')
                 fig.add_layout_image(
                     dict(
                         source=Image.open('images/uta-logo-sm.jpg'),
@@ -260,7 +263,7 @@ class PlayerChart(commands.Cog):
             if p not in [None,'']:
                 pids.append(p.id)
                 playernames.append(p.display_name)
-        self.log.debug('rkmpstats() - Generating graph for players {0}'.format(', '.join(playernames)))
+        log.debug('rkmpstats() - Generating graph for players {0}'.format(', '.join(playernames)))
         if len(pids) and len(playernames) and len(pids) == len(playernames):
             ctx.bot.get_cog('PUG').pugInfo.savePugRatings(self.ratingsFile)
             rkData = ctx.bot.get_cog('PUG').pugInfo.loadPugRatings(self.ratingsFile, True)
