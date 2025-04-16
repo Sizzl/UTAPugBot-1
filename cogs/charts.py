@@ -15,7 +15,7 @@ DEFAULT_RATING_FILE = 'players/ratings.json'
 # Logging
 #########################################################################################
 log = admin.setupLogging('charts',logging.DEBUG,logging.DEBUG)
-log.info('Extension loaded with logging...')
+log.info('Charts extension loaded with logging...')
 
 #########################################################################################
 # Charting
@@ -229,7 +229,6 @@ class PlayerChart(commands.Cog):
         pid = player.id
         pids = []
         pids.append(pid)
-        ctx.bot.get_cog('PUG').pugInfo.savePugRatings(self.ratingsFile)
         rkData = ctx.bot.get_cog('PUG').pugInfo.loadPugRatings(self.ratingsFile, True)
         rsResult = self.getRankStats(mode, rkData, pids)
         if rsResult not in [None,'']:
@@ -265,7 +264,6 @@ class PlayerChart(commands.Cog):
                 playernames.append(p.display_name)
         log.debug('rkmpstats() - Generating graph for players {0}'.format(', '.join(playernames)))
         if len(pids) and len(playernames) and len(pids) == len(playernames):
-            ctx.bot.get_cog('PUG').pugInfo.savePugRatings(self.ratingsFile)
             rkData = ctx.bot.get_cog('PUG').pugInfo.loadPugRatings(self.ratingsFile, True)
             rsResult = self.getRankStats(mode, rkData, pids)
             if rsResult not in [None,''] and 'image' in rsResult and rsResult['image'] not in [None,'']:

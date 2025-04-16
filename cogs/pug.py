@@ -134,7 +134,7 @@ DISCORD_MD_ESCAPE_DICT = {c: '\\' + c for c in DISCORD_MD_CHARS}
 # Logging
 #########################################################################################
 log = admin.setupLogging('pugbot',logging.DEBUG,logging.DEBUG)
-log.info('Extension loaded with logging...')
+log.info('Pug extension loaded with logging...')
 
 #########################################################################################
 # Utilities
@@ -2708,7 +2708,8 @@ class PUG(commands.Cog):
             rkData = {'rankedgames':[]}
             rkData['rankedgames'].append(self.pugInfo.ratings)
         else:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            if self.pugInfo.pugLocked != True:
+                self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
@@ -2901,14 +2902,15 @@ class PUG(commands.Cog):
                             report['players_sum'] = report['players_sum']+pSummary
         return report
     
-    def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False):
+    def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False, additionalid: int = 0):
         if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
             log.debug('ratingsPlayerDataHandler() using cached ratings')
             rkData = {'rankedgames':[]}
             rkData['rankedgames'].append(self.pugInfo.ratings)
         else:
             log.debug('ratingsPlayerDataHandler() reloading data from JSON file')
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            if self.pugInfo.pugLocked != True:
+                self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if type(player) is int:
             pid = player
@@ -3039,6 +3041,8 @@ class PUG(commands.Cog):
                                 log.debug('{0}({1},{2},{3},{4}) - updating existing rank data for {5}.'.format(action,pid,mode,rating,toggle,pdn))
                                 if len(pdn):
                                     r['dlastnick'] = pdn
+                                if (additionalid > 0 or 'externalpid' not in r):
+                                    r['externalpid'] = additionalid
                                 r['ratingdate'] = datetime.now().isoformat()
                                 if 'ratinghistory' in r:
                                     if r['ratinghistory'] in [None,'']:
@@ -3067,6 +3071,7 @@ class PUG(commands.Cog):
                             x['ratings'].append({
                                 'did': pid,
                                 'dlastnick': pdn,
+                                'externalpid': additionalid,
                                 'ratingdate': datetime.now().isoformat(),
                                 'ratingprevious': 0,
                                 'ratingvalue': rating,
@@ -3352,13 +3357,13 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['setrk','rankset','addrk','rankadd','rkadd'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkset(self, ctx, player: discord.Member, mode: str = 'rASPlus', rating: int = 500):
+    async def rkset(self, ctx, player: discord.Member, mode: str = 'rASPlus', rating: int = 500, externalpid: int = 0):
         """Adds or sets a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus) Weight(e.g., 500)"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
             await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
             await ctx.send('Please try again after the match has concluded.')
         else:
-            msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating)
+            msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating,False,externalpid)
             await ctx.send(msg)
         return True
     
@@ -3375,6 +3380,16 @@ class PUG(commands.Cog):
             await ctx.send(msg)
         return True
     
+    @commands.hybrid_command()
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def rksync(self, ctx, mode: str = 'rASPlus', matchref: str = '', direction: str = 'outbound'):
+        if len(matchref) == 0:
+            await ctx.send('Please provide a valid match reference.')
+            return True
+        
+        return True
+
     @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
@@ -3562,6 +3577,10 @@ class PUG(commands.Cog):
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
             return True
+        if self.pugInfo.pugLocked and self.pugInfo.ranked:
+            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+            await ctx.send('Configuration cannot be modified while a match is in progress.')
+            return True
         self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
         rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
@@ -3603,6 +3622,10 @@ class PUG(commands.Cog):
             return True
         if (scoremode.lower() not in ['permap','pergame']):
             await ctx.send('Settings not saved: Score Mode must be either: "permap" or "pergame".')
+            return True
+        if self.pugInfo.pugLocked and self.pugInfo.ranked:
+            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+            await ctx.send('Configuration cannot be modified while a match is in progress.')
             return True
         self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
         rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
@@ -3656,7 +3679,8 @@ class PUG(commands.Cog):
                 return True
         games = []
         msg = []
-        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        if self.pugInfo.pugLocked != True and self.pugInfo.ranked:
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
         rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
