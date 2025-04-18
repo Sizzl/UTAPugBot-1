@@ -51,7 +51,7 @@ MODE_CONFIG = {
     'stdAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', None),
     'proAS': Mode(False, 2, 20, 100, 'LeagueAS140.LeagueAssault', None),
     'ASplus': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'rASplus': Mode(True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
+    'rASplus': Mode(True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS'),
     'proASplus': Mode(False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
     'iAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.iAS'),
     'ZPiAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
