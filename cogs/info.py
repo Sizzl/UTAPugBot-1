@@ -60,56 +60,60 @@ class Info(commands.Cog):
     @commands.guild_only()
     async def downloads(self, ctx):
         """Shows useful downloads"""
-        str = ["Useful Downloads:"]
-        str.append("Note:")
-        str.append("To PUG you'll need a UT install with LeagueAS140 and UTA Maps. To run the game smoothly above 90 FPS you'll need to use the UT 469 patch (latest release is recommended).")
-        str.append("To run smoothly, it's recommended you use the D3D9 or D3D11 Renderer.")
-        str.append("")
-        str.append("**__Unreal Tournament 99__**")
-        str.append("**Pre-setup UT**(*469d from rX of the TDM community*): <https://docs.google.com/document/d/1BOl6Dq4vvS8n6C-FNSLjGfdocCqvWXcgNjiLgFkH-KQ/edit?usp=sharing>")
-        str.append("")
-        str.append("**__Useful Extras__**")
-        str.append("**LeagueAS140** available here: <https://www.utassault.net/leagueas/?downloads>")
-        str.append("**UTA Maps**(*download Maps, Textures, Sounds and Music folders and add to your UT install*): <https://github.com/Sizzl/UTA-PugServer/tree/master/ut-server>")
-        str.append("**AssaultBonusPak.u**(*required for playing some maps*): <https://github.com/Sizzl/UTA-PugServer/blob/master/ut-server/System/AssaultBonusPack.u>")
-        str.append("**UT469 Patches**(*Get the latest and make a copy of your UT folder before applying*): <https://github.com/OldUnreal/UnrealTournamentPatches/releases>")
+        str = ['Useful Downloads:']
+        str.append('Note:')
+        str.append('To PUG you\'ll need a UT install with LeagueAS140 and UTA Maps. To run the game smoothly above 90 FPS you\'ll need to use the UT 469 patch (latest release is recommended).')
+        str.append('To run smoothly, it\'s recommended you use the D3D9 or D3D11 Renderer.')
+        str.append('')
+        str.append('**__Unreal Tournament 99__**')
+        str.append('**Pre-setup UT**(*469d from rX of the TDM community*): <https://docs.google.com/document/d/1BOl6Dq4vvS8n6C-FNSLjGfdocCqvWXcgNjiLgFkH-KQ/edit?usp=sharing>')
+        str.append('')
+        str.append('**__Useful Extras__**')
+        str.append('**LeagueAS140** available here: <https://www.utassault.net/leagueas/?downloads>')
+        str.append('**UTA Maps**(*download Maps, Textures, Sounds and Music folders and add to your UT install*): <https://github.com/Sizzl/UTA-PugServer/tree/master/ut-server>')
+        str.append('**AssaultBonusPak.u**(*required for playing some maps*): <https://github.com/Sizzl/UTA-PugServer/blob/master/ut-server/System/AssaultBonusPack.u>')
+        str.append('**UT469 Patches**(*Get the latest and make a copy of your UT folder before applying*): <https://github.com/OldUnreal/UnrealTournamentPatches/releases>')
         await ctx.send('\n'.join(str))
 
     @commands.command()
     @commands.guild_only()
     async def stats(self, ctx):
         """Get a link to the pug stats page"""
-        await ctx.send("UTAPUG stats: <https://www.utassault.net/pugstats>")
+        await ctx.send('UTAPUG stats: <https://www.utassault.net/pugstats>')
 
     @commands.command()
     @commands.guild_only()
     async def hammerbind(self, ctx):
         """Shows a hammerjump bind"""
-        await ctx.send("Aliases[XX]=(Command=\"getweapon ImpactHammer | Button bFire | Fire | OnRelease Jump\",Alias=hjump)")
+        await ctx.send('Aliases[XX]=(Command=\"getweapon ImpactHammer | Button bFire | Fire | OnRelease Jump\",Alias=hjump)')
 
     @commands.command(aliases = ['bt'])
     @commands.guild_only()
     async def bunnytrack(self, ctx):
         """Shows UTA BunnyTrack server info"""
-        await ctx.send("UTA BunnyTrack server: **unreal://bt.utassault.net:9100**")
+        server = 'unreal://bt.utassault.net:9100'
+        await ctx.send('UTA BunnyTrack server: **{0}**'.format(server))
+        await ctx.bot.get_cog('PUG').serverquery(ctx,server,hideheader=True)
 
-    # @commands.command(aliases = ['tdm', 'dm'])
+    # @commands.command(aliases = ['tdm', 'dm']) 
     # @commands.guild_only()
     # async def deathmatch(self, ctx):
     #     """Shows UTA TDM server info"""
-    #     await ctx.send("UTA TDM server: **unreal://51.195.40.255:7777**")
+    #     await ctx.send('UTA TDM server: **unreal://51.195.40.255:7777**')
 
     # @commands.command(aliases = ['ffa'])
     # @commands.guild_only()
     # async def freeforall(self, ctx):
     #     """Shows UTA FFA server info"""
-    #     await ctx.send("UTA FFA server: **unreal://51.195.40.255:7786**")
+    #     await ctx.send('UTA FFA server: **unreal://51.195.40.255:7786**')
 
     @commands.command(aliases = ['ra','dm','tdm','ffa'])
     @commands.guild_only()
     async def rocketarena(self, ctx):
         """Shows UTA RocketArena server info"""
-        await ctx.send("UTA RocketArena/DM server: **unreal://ra.utassault.net:9600**")
+        server = 'unreal://ra.utassault.net:9600'
+        await ctx.send('UTA RocketArena/DM server: **{0}**'.format(server))
+        await ctx.bot.get_cog('PUG').serverquery(ctx,server,hideheader=True)
 
 async def setup(bot):
     await bot.add_cog(Info(bot))

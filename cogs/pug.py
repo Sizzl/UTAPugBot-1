@@ -2696,8 +2696,8 @@ class PUG(commands.Cog):
                                 if 'player_{0}'.format(x) in queryData:
                                     player = {}
                                     player['Name'] = queryData['player_{0}'.format(x)].replace('`','').strip()
-                                    if len(player['Name']) > 19:
-                                        player['Name'] = '{0}...'.format(player['Name'][:17]).strip()
+                                    if len(player['Name']) > 14:
+                                        player['Name'] = '{0}...'.format(player['Name'][:12]).strip()
                                     player['Frags'] = '0'
                                     if 'frags_{0}'.format(x) in queryData:
                                         player['Frags'] = queryData['frags_{0}'.format(x)].strip()                                                                                        
@@ -2709,17 +2709,17 @@ class PUG(commands.Cog):
                                     if 'team_{0}'.format(x) in queryData:
                                         player['TeamId'] = queryData['team_{0}'.format(x)]
                                     if player['TeamId'] == '255':
-                                        summary['PlayerList{0}_data'.format(player['TeamId'])] = '{0}\n{1}\t {2} {3}'.format(summary['PlayerList{0}_data'.format(player['TeamId'])],player['Name'].ljust(20),''.rjust(5),player['Ping'].rjust(4))
+                                        summary['PlayerList{0}_data'.format(player['TeamId'])] = '{0}\n{1}\t {2} {3}'.format(summary['PlayerList{0}_data'.format(player['TeamId'])],player['Name'].ljust(15),''.rjust(5),player['Ping'].rjust(4))
                                     else:
-                                        summary['PlayerList{0}_data'.format(player['TeamId'])] = '{0}\n{1}\t {2} {3}'.format(summary['PlayerList{0}_data'.format(player['TeamId'])],player['Name'].ljust(20),player['Frags'].rjust(5),player['Ping'].rjust(4))
+                                        summary['PlayerList{0}_data'.format(player['TeamId'])] = '{0}\n{1}\t {2} {3}'.format(summary['PlayerList{0}_data'.format(player['TeamId'])],player['Name'].ljust(15),player['Frags'].rjust(5),player['Ping'].rjust(4))
 
                             for x in range(int(queryData['maxteams'])):
                                 if summary['PlayerList{0}_data'.format(x)] not in ['',None]:
-                                    summary['PlayerList{0}'.format(x)] = '```Player Name{0}\t Score Ping'.format('\u2800'*8)
+                                    summary['PlayerList{0}'.format(x)] = '```Player Name{0}\t Score Ping'.format('\u2800'*3)
                                     summary['PlayerList{0}'.format(x)] = '{0}{1}\n```'.format(summary['PlayerList{0}'.format(x)],summary['PlayerList{0}_data'.format(x)])
                             
                             if summary['PlayerList255_data'] not in ['',None]:
-                                summary['PlayerList255'] = '```Name       {0}\t       Ping'.format('\u2800'*8)
+                                summary['PlayerList255'] = '```Name       {0}\t       Ping'.format('\u2800'*3)
                                 summary['PlayerList255'] = '{0}{1}\n```'.format(summary['PlayerList255'],summary['PlayerList255_data'])
 
                     # Set basic embed info
@@ -4257,7 +4257,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
-    async def serverquery(self, ctx, serveraddr: str):
+    async def serverquery(self, ctx, serveraddr: str, hideheader: bool = True):
         """Displays status of a given server"""
         serverinfo = {}
         if (self.pugInfo.gameServer.utQueryReporterActive or self.pugInfo.gameServer.utQueryStatsActive):
@@ -4307,6 +4307,9 @@ class PUG(commands.Cog):
                     for x, f in enumerate(embedInfo.fields):
                         if 'Objectives' in f.name:
                             embedInfo.remove_field(x)
+                    if hideheader:
+                        embedInfo.title = ''
+                        embedInfo.description = ''
                     await ctx.send(embed=embedInfo)
                 else:
                     await ctx.send('Could not resolve server from provided information.')
