@@ -43,6 +43,7 @@ class PlayerBTRecords(commands.Cog):
                 except:
                     log.error('loadBTini() - failed to load INI - likely encoding issue')
             if self.recordsType in btini:
+                records = []
                 for x in range(0,3000):
                     rec = btini[self.recordsType].get('Records[{0}]'.format(x), '')
                     if rec not in ['',None,'(M="",C=0,t=0,P="")']:
@@ -52,8 +53,10 @@ class PlayerBTRecords(commands.Cog):
                             crec['M'] = crec['M'].replace('"','')
                         if 'P' in crec:
                             crec['P'] = crec['P'].replace('"','')
-                        self.records.append(crec)
-                self.lastCache = datetime.now()
+                        records.append(crec)
+                if len(records):
+                    self.records = records
+                    self.lastCache = datetime.now()
                 return True
             else:
                 log.error('loadBTini() - failed to load configuration section {0} from configuration file {1}'.format(self.recordsType,self.recordsFile))
