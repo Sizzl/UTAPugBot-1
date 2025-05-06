@@ -35,7 +35,13 @@ class PlayerBTRecords(commands.Cog):
     def loadBTini(self):
         if os.path.exists(self.recordsFile):
             btini = configparser.ConfigParser()
-            btini.read(self.recordsFile,encoding='utf-8')
+            try:
+                btini.read(self.recordsFile,encoding='utf-8')
+            except:
+                try:
+                    btini.read(self.recordsFile,encoding='utf-8-sig')
+                except:
+                    log.error('loadBTini() - failed to load INI - likely encoding issue')
             if self.recordsType in btini:
                 for x in range(0,3000):
                     rec = btini[self.recordsType].get('Records[{0}]'.format(x), '')
