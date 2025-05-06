@@ -12,7 +12,7 @@ intents = intents = discord.Intents().all()
 
 description = 'Discord Assault PUG Bot'
 
-extensions = ['cogs.admin', 'cogs.info', 'cogs.pug', 'cogs.charts']
+extensions = ['cogs.admin', 'cogs.info', 'cogs.pug', 'cogs.charts', 'cogs.recs-bt']
 
 #########################################################################################
 # Logging
