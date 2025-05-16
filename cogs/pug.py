@@ -1900,24 +1900,35 @@ class AssaultPug(PugTeams):
                 fw.close()
         return True
 
-    def makeRatedTeams(self):
+    def makeRatedTeams(self, simulatedRatings=[]):
         """Uses bitmask comparison bin-sorting to work out a balanced set of teams"""
-        log.debug('makeRatedTeams() - Beginning rated teams sorting...')
-        if (self.teamsFull):
+        if len(simulatedRatings):
+            log.debug('makeRatedTeams() - Beginning simulated rated teams sorting...')
+        else:
+            log.debug('makeRatedTeams() - Beginning rated teams sorting...')
+        if (self.teamsFull and len(simulatedRatings) == 0):
             log.debug('makeRatedTeams() - Teams already filled.')
             return
         playerRatings = []
         playerIDs = []
         playerMap = {}
+        simRed = []
+        simBlue = []
         if self.ratings in [None, '']:
             self.setRankedMode(MODE_CONFIG[self.mode].isRanked, False)
         if 'ratings' not in self.ratings:
             self.setRankedMode(MODE_CONFIG[self.mode].isRanked, False)
-        for p in self.players: playerIDs.append(p.id)
-        for rankedPlayer in self.ratings['ratings']:
-            if str(rankedPlayer['did']) in playerIDs or int(rankedPlayer['did']) in playerIDs:
-                playerRatings.append(rankedPlayer['ratingvalue'])
-                playerMap[int(rankedPlayer['did'])] = rankedPlayer['ratingvalue']
+        if len(simulatedRatings):
+            for p in simulatedRatings:
+                playerIDs.append(p['did'])
+                playerRatings.append(p['ratingvalue'])
+                playerMap[int(p['did'])] = p['ratingvalue']
+        else:
+            for p in self.players: playerIDs.append(p.id)
+            for rankedPlayer in self.ratings['ratings']:
+                if str(rankedPlayer['did']) in playerIDs or int(rankedPlayer['did']) in playerIDs:
+                    playerRatings.append(rankedPlayer['ratingvalue'])
+                    playerMap[int(rankedPlayer['did'])] = rankedPlayer['ratingvalue']
         log.debug('makeRatedTeams() - playerIDs = {0}; playerRatings = {1}'.format(playerIDs,playerRatings))
         minDiff = float('inf')
         for mask in range(1 << len(playerRatings)):
@@ -1930,17 +1941,29 @@ class AssaultPug(PugTeams):
                     rankedRed = x
                     rankedBlue = y
         log.debug('makeRatedTeams() masked values: red={0}, blue={1}'.format(rankedRed,rankedBlue))
-        self.redPower = sum(rankedRed)
-        self.bluePower = sum(rankedBlue)
-        msg = 'Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower))
-        # Establish self.red and self.blue
-        for p in self.players:
-            if (playerMap[p.id] in rankedRed and p not in self.red and p not in self.blue):
-                self.red.append(p)
-                rankedRed.remove(playerMap[p.id])
-            if (playerMap[p.id] in rankedBlue and p not in self.red and p not in self.blue):
-                self.blue.append(p)
-                rankedBlue.remove(playerMap[p.id])
+        if len(simulatedRatings) == 0:
+            self.redPower = sum(rankedRed)
+            self.bluePower = sum(rankedBlue)
+            msg = 'Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower))
+        else:
+            msg = 'Red RP: {0}; Blue RP: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
+        # Establish self.red and self.blue 
+        if len(simulatedRatings):
+            for p in simulatedRatings:
+                if (playerMap[p['id']] in rankedRed and p not in simRed and p not in simBlue):
+                    simRed.append(p)
+                    rankedRed.remove(playerMap[p['id']])
+                if (playerMap[p['id']] in rankedBlue and p not in simRed and p not in simBlue):
+                    simBlue.append(p)
+                    rankedBlue.remove(playerMap[p['id']])
+        else:
+            for p in self.players:
+                if (playerMap[p.id] in rankedRed and p not in self.red and p not in self.blue):
+                    self.red.append(p)
+                    rankedRed.remove(playerMap[p.id])
+                if (playerMap[p.id] in rankedBlue and p not in self.red and p not in self.blue):
+                    self.blue.append(p)
+                    rankedBlue.remove(playerMap[p.id])
         if 'capMode' in self.ratings:
             redCapPicks = []
             blueCapPicks = []
@@ -1952,27 +1975,42 @@ class AssaultPug(PugTeams):
                     for p in self.players:
                         for role in p.roles:
                             if str(role.name).lower() == str(self.ratings['capRole']).lower():
-                                if p in self.red:
+                                if p in self.red or p in simRed:
                                     redCapPicks.append(p)
-                                if p in self.blue:
+                                if p in self.blue or p in simBlue:
                                     blueCapPicks.append(p)
                 if len(redCapPicks) == 0 or len(blueCapPicks) == 0:
                     capMode = 1 # fall back to random
             if capMode == 1:
-                if len(redCapPicks) == 0:
+                if len(redCapPicks) == 0 and len(simulatedRatings) == 0:
                     redCapPicks = self.red
-                if len(blueCapPicks) == 0:
+                elif len(redCapPicks) == 0 and len(simulatedRatings) > 0:
+                    redCapPicks = simRed
+                if len(blueCapPicks) == 0 and len(simulatedRatings) == 0: 
                     blueCapPicks = self.blue
+                elif len(blueCapPicks) == 0 and len(simulatedRatings) > 0:
+                    blueCapPicks = simBlue
 
             if capMode > 0 and len(redCapPicks) > 0 and len(blueCapPicks) > 0:
                 redCap = random.choice(redCapPicks)
-                self.red.remove(redCap)
-                self.red.insert(0,redCap)
+                if len(simulatedRatings):
+                    simRed.remove(redCap)
+                    simRed.insert(0,redCap)
+                else:
+                    self.red.remove(redCap)
+                    self.red.insert(0,redCap)
                 blueCap = random.choice(blueCapPicks)
-                self.blue.remove(blueCap)
-                self.blue.insert(0,blueCap)
-                msg = msg+'\nRed captain: {0}\nBlue captain: {1}'.format(redCap.mention,blueCap.mention)
-
+                if len(simulatedRatings):
+                    simBlue.remove(blueCap)
+                    simBlue.insert(0,blueCap)
+                else:
+                    self.blue.remove(blueCap)
+                    self.blue.insert(0,blueCap)
+                if len(simulatedRatings) == 0:
+                    msg = msg+'\nSimulated Red captain: {0}\n Simulated Blue captain: {1}'.format(redCap.mention,blueCap.mention)
+        if len(simulatedRatings):
+            msg = msg+'\nSimulated Red team: {0}'.format(PLASEP.join(sp['name'] for sp in simRed))
+            msg = msg+'\nSimulated Blue team: {0}'.format(PLASEP.join(sp['name'] for sp in simBlue))
         log.debug('makeRatedTeams() completed: {0}'.format(msg.replace('\n','; ')))
         return msg
 
@@ -3040,12 +3078,6 @@ class PUG(commands.Cog):
             if self.pugInfo.pugLocked != True:
                 self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
-        if type(player) is int:
-            pid = player
-            pdn = ''
-        else:
-            pid = player.id
-            pdn = player.display_name
         rkReload = False
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
@@ -3054,18 +3086,29 @@ class PUG(commands.Cog):
         if rkReload:
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if type(player) is int:
+            pid = player
+            pdn = ''
+        elif type(player) is str:
+            pid = -1
+            pdn = player
+        else:
+            pid = player.id
+            pdn = player.display_name
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode'] # update formatting
                     if action == 'rkget' or action == 'rkrecalc':
                         msg = 'Error - Player not registered for ranked games in {0}'.format(mode)
-                        if pid in x['registrations']:
+                        if pid in x['registrations'] or pid < 0:
                             for r in x['ratings']:
-                                if r['did'] == pid:
+                                if r['did'] == pid or (pid < 0 and 'dlastnick' in r and str(r['dlastnick']).lower() == pdn.lower()):
                                     if action == 'rkget':
                                         return r
                                     elif action == 'rkrecalc':
+                                        if pid < 0: 
+                                            pid = r['did']
                                         admsets = []
                                         log.debug('ratingsPlayerDataHandler(rkrecalc) - Recalculating rank for {0}'.format(r['dlastnick']))
                                         if rating == 0:
@@ -3160,7 +3203,7 @@ class PUG(commands.Cog):
                                         if len(msg) == 0:
                                             msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating)
                     elif action == 'rkset':
-                        if pid not in x['registrations']:
+                        if pid > -1 and pid not in x['registrations']:
                             x['registrations'].append(pid) # register player as eligible
                             log.debug('{0}({1},{2},{3},{4}) - registering new pid for {5}.'.format(action,pid,mode,rating,toggle,pdn))
                         rkUpdate = False
@@ -3194,7 +3237,7 @@ class PUG(commands.Cog):
                                 r['lastgamedate'] = r['ratingdate']
                                 r['lastgameref'] = 'admin-set'
                                 rkUpdate = True
-                        if rkUpdate == False: # new entry required
+                        if rkUpdate == False and pid > -1: # new entry required
                             log.debug('{0}({1},{2},{3},{4}) - adding new rank data for {5}.'.format(action,pid,mode,rating,toggle,pdn))
                             x['ratings'].append({
                                 'did': pid,
@@ -3207,14 +3250,20 @@ class PUG(commands.Cog):
                                 'lastgamedate': datetime.now().isoformat(),
                                 'lastgameref': 'admin-set'
                             })
-                        msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,pdn,pid,mode)
+                        if pid > -1:
+                            msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,pdn,pid,mode)
+                        else:
+                            msg = 'Player ID could not be established for {0}'.format(pdn)
                     elif action == 'rkdel':
-                        if player.id in x['registrations']:
+                        if pid in x['registrations']:
                             x['registrations'].remove(pid)
                         for r in x['ratings']:
                             if r['did'] == pid:
                                 x['ratings'].remove(r)
-                        msg = 'Ranked player rating removed for {0} (id:{1}) in game mode {2}'.format(pdn,pid,mode)
+                        if pid > -1:
+                            msg = 'Ranked player rating removed for {0} (id:{1}) in game mode {2}'.format(pdn,pid,mode)
+                        else:
+                            msg = 'Player ID could not be established for {0}'.format(pdn)
                     else:
                         msg = 'Unsupported action called.'
         if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
@@ -3223,7 +3272,9 @@ class PUG(commands.Cog):
                 self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
                 log.debug('ratingsPlayerDataHandler({0}) - loaded ratings back into memory'.format(mode))
         else:
-            msg = 'Error - rank data could not be saved; check bot logs.'
+                msg = 'Error - rank data could not be saved; check bot logs.'
+        if action == 'rkget':
+            msg = None
         return msg
 
     def ratingsSync(self, endpoint: str = '', body: str = '', authkey: str = '', restrict: bool = False, delay: int = 0):
@@ -3659,6 +3710,67 @@ class PUG(commands.Cog):
                         await ctx.send(m)
             else:
                 await ctx.send(msg)
+        return True
+
+    @commands.hybrid_command(aliases=['rkgamesim','rksim'])
+    @commands.guild_only()
+    async def rkgamesimulation(self, ctx, player1=None, player2=None, player3=None, player4=None, player5=None, player6=None, player7=None, player8=None, player9=None, player10=None, player11=None, player12=None, player13=None, player14=None):
+        """Simulates player picks for the active ranked mode, using rules for that mode. Use player:(+-)100 modifiers to test changes."""
+        if not self.pugInfo.ranked:
+            await ctx.send('Ranked mode must be active for player pick simulations to occur.')
+            return True
+        players = []
+        invalid = []
+        log.debug('rkgamesimulation() - starting')
+        for p in player1, player2, player3, player4, player5, player6, player7, player8, player9, player10, player11, player12, player13, player14:
+            player = None
+            if p not in ['', None]:
+                pid = re.search(r'<@(\d*)>', p)
+                if (pid):
+                    player = int(pid[1])
+                modifier = re.search(r'(.*):(\+{0,1})(\-{0,1})(\d{0,4})', str(p))
+                adjust = 0
+                override = False
+                if modifier == None:
+                    if player == None:
+                        player = p
+                    log.debug('rkgamesimulation() - simulation pre-processed player: {0}'.format(player))
+                else:
+                    if player == None:
+                        player = modifier[1]
+                    if len(modifier[4]):
+                        adjust = int(modifier[4])
+                    if len(modifier[3]) == 0 and len(modifier[2]) == 0:
+                        override = True
+                    elif len(modifier[3]):
+                        adjust = 0-adjust
+                pstats = self.ratingsPlayerDataHandler('rkget', self.pugInfo.mode, player)
+                if pstats not in ['', None]:
+                    if adjust > 0:
+                        if override:
+                            ratingValue = adjust
+                        else:
+                            ratingValue = pstats['ratingvalue']+adjust
+                        log.debug('rkgamesimulation() - adjusted player rating for {0} from {1} to {2}'.format(player,str(pstats['ratingvalue']),str(ratingValue)))
+                    else:
+                        ratingValue = pstats['ratingvalue']
+                        log.debug('rkgamesimulation() - adding player {0} at RP {1} to simulation'.format(player,str(pstats['ratingvalue'])))
+                    players.append({
+                        'id': pstats['did'],
+                        'did': pstats['did'],
+                        'name': pstats['dlastnick'],
+                        'ratingvalue': ratingValue
+                    })
+                else:
+                    invalid.append(player)
+        if len(players) > 1 and len(players) % 2 == 0:
+            msg = self.pugInfo.makeRatedTeams(simulatedRatings=players)
+            await ctx.send('Simulated player pick for {0} provided and registered players:'.format(len(players)))
+            await ctx.send(msg)
+        else:
+            if len(invalid):
+                await ctx.send('Invalid player(s): {0}'.format(PLASEP.join(invalid)))
+            await ctx.send('Provide two or more valid players for simulation.')
         return True
 
     @commands.command(aliases=['clearmaplist'])
