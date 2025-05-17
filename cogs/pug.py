@@ -2007,7 +2007,7 @@ class AssaultPug(PugTeams):
                     self.blue.remove(blueCap)
                     self.blue.insert(0,blueCap)
                 if len(simulatedRatings) == 0:
-                    msg = msg+'\nSimulated Red captain: {0}\n Simulated Blue captain: {1}'.format(redCap.mention,blueCap.mention)
+                    msg = msg+'\nRed captain: {0}\nBlue captain: {1}'.format(redCap.mention,blueCap.mention)
         if len(simulatedRatings):
             msg = msg+'\nSimulated Red team: {0}'.format(PLASEP.join(sp['name'] for sp in simRed))
             msg = msg+'\nSimulated Blue team: {0}'.format(PLASEP.join(sp['name'] for sp in simBlue))
@@ -2694,6 +2694,7 @@ class PUG(commands.Cog):
                 # Send multi-query request for lots of info
                 if self.pugInfo.gameServer.utQueryServer('status\\\\level_property\\timedilation\\\\game_property\\teamscore\\\\game_property\\teamnamered\\\\game_property\\teamnameblue\\\\player_property\\Health\\\\game_property\\elapsedtime\\\\game_property\\remainingtime\\\\game_property\\bmatchmode\\\\game_property\\friendlyfirescale\\\\game_property\\currentdefender\\\\game_property\\bdefenseset\\\\game_property\\matchcode\\\\game_property\\fraglimit\\\\game_property\\timelimit\\\\rules'):
                     queryData = self.pugInfo.gameServer.utQueryData
+                    log.debug(queryData)
 
                     # Build embed data
                     summary = {

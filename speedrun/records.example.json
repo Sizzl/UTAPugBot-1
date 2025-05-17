@@ -1,0 +1,25 @@
+[
+  {
+    "map": "Ballistic",
+    "leaderboard": [
+      {
+        "screenshot_link": "https://.../Shot00109.png?width=1202&height=676",
+        "player": "Naru",
+        "position": 1,
+        "time": "0:42.562"
+      },
+      {
+        "player": "w1sh",
+        "time": "0:43.660",
+        "screenshot_link": "https://.../Shot00007.png",
+        "position": 2
+      },
+      {
+        "position": 3,
+        "time": "0:43.927",
+        "screenshot_link": "https://.../balli-43-3.png",
+        "player": "twnZ"
+      }
+    ]
+  }
+]

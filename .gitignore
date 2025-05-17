@@ -8,6 +8,8 @@ credentials.json
 credentials.xml
 config.json
 ratings.json
+records.json
+pending.json
 *.ini
 config.xml
 default_server.json
