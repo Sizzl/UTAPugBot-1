@@ -202,7 +202,7 @@ class PlayerChart(commands.Cog):
                 ]
             )
             if os.path.exists('images/uta-logo-sm.jpg'):
-                log.debug('generateRankHistory() adding logo')
+                log.debug('generateRankHistory() - adding logo')
                 fig.add_layout_image(
                     dict(
                         source=Image.open('images/uta-logo-sm.jpg'),
@@ -216,7 +216,7 @@ class PlayerChart(commands.Cog):
                         yanchor='top',
                         opacity=0.6)
                 )
-            fig.write_image(image)
+            fig.write_image(image, format='png')
         return image
 
 
@@ -224,7 +224,7 @@ class PlayerChart(commands.Cog):
     @commands.guild_only()
     async def rkstats(self, ctx, player: discord.Member = None, mode: str = 'rASPlus'):
         """Shows player rank history within a game mode: PlayerNick GameMode(e.g. rASPlus)"""
-        if player == None:
+        if player is None:
             player = ctx.message.author
         pid = player.id
         pids = []
@@ -235,9 +235,13 @@ class PlayerChart(commands.Cog):
             embedInfo = discord.Embed(color=discord.Color.dark_embed(),title='Ratings history for {0}'.format(player.display_name))
             if 'g_last' in rsResult and rsResult['g_last'] not in [None, '']:
                 embedInfo.description='Last match/update: {0}; Current RP: **{1}**'.format(rsResult['g_last'].strftime('%d/%m/%Y @ %H:%M:%S'), rsResult['r_current'])
-            file = discord.File(rsResult['image'], filename='{0}.png'.format(pid))
-            embedInfo.set_image(url='attachment://{0}.png'.format(pid))
-            await ctx.send(file=file, embed=embedInfo)
+            if os.path.exists(rsResult['image']):
+                file = discord.File(rsResult['image'], filename='{0}.png'.format(pid))
+                embedInfo.set_image(url='attachment://{0}.png'.format(pid))
+                await ctx.send(file=file, embed=embedInfo)
+            else:
+                await ctx.send('Error - failed to generate chart.')
+                log.debug('rkstats() - error when referencing file. Input: {0}'.format(str(rsResult)))
         return True
 
     @commands.hybrid_command(aliases=['ego','rkts','rkteam'])
@@ -273,9 +277,13 @@ class PlayerChart(commands.Cog):
                     embedInfo.description='{0}'.format(' vs. '.join(playernames))
                 else:
                     embedInfo.title='Ratings comparison for {0}'.format(', '.join(playernames))
-                file = discord.File(rsResult['image'], filename='{0}.png'.format(pid))
-                embedInfo.set_image(url='attachment://{0}.png'.format(pid))
-                await ctx.send(file=file, embed=embedInfo)
+                if os.path.exists(rsResult['image']):
+                    file = discord.File(rsResult['image'], filename='{0}.png'.format(pid))
+                    embedInfo.set_image(url='attachment://{0}.png'.format(pid))
+                    await ctx.send(file=file, embed=embedInfo)
+                else:
+                    await ctx.send('Error - failed to generate chart(s).')
+                    log.debug('rkmpstats() - error when referencing file. Input: {0}'.format(str(rsResult)))
         return True
     
 async def setup(bot):

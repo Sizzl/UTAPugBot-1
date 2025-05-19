@@ -3,6 +3,6 @@ requests
 asyncpg
 gitpython
 dnspython
-plotly
+plotly == 6.0.1
 pillow
-kaleido
+kaleido == 0.2.1
