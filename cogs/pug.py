@@ -2175,7 +2175,10 @@ class AssaultPug(PugTeams):
                                 #if len(p['ratinghistory']) > 150:
                                 #    p['ratinghistory'][:] = p['ratinghistory'][-150:]
                             p['lastgamedate'] = match['startdate']
-                            p['lastgameref'] = match['gameref']
+                            if 'gameref' in match and len(match['gameref']):
+                                p['lastgameref'] = match['gameref']
+                            else:
+                                p['lastgameref'] = 'admin-set'
                             if player > 0:
                                 return p
         return rkData
@@ -3172,7 +3175,10 @@ class PUG(commands.Cog):
                                                     g_date = g_last.strftime('%d/%b/%Y %H:%M')
                                                     log.debug('ratingsPlayerDataHandler({0}) - {1} present in match {2} - calculating RP'.format(mode,r['dlastnick'],m['gameref']))
                                                     rk = self.pugInfo.applyRankedScoring(x, mode=mode, match=m, player=pid)
-                                                    log.debug('ratingsPlayerDataHandler({0}) - Updated player data from applyRankedScoring() for match: {1} = {2}; RP before: {3}, RP after: {4}'.format(mode,m['gameref'],rk['lastgameref'],rk['ratingprevious'],rk['ratingvalue']))
+                                                    if 'lastgameref' in rk and 'ratingprevious' in rk:
+                                                        log.debug('ratingsPlayerDataHandler({0}) - Updated player data from applyRankedScoring() for match: {1} = {2}; RP before: {3}, RP after: {4}'.format(mode,m['gameref'],rk['lastgameref'],rk['ratingprevious'],rk['ratingvalue']))
+                                                    else:
+                                                        log.debug('ratingsPlayerDataHandler({0}) - Updated player data from applyRankedScoring() for match: {1} = (unknown). rk = {2}'.format(mode,m['gameref'],str(rk)))
                                                     if 'did' in rk and rk['did'] == pid:
                                                         r = rk
                                                     msg = msg+'> Match: `{0}` @ {1} (team {2}); Score: Red {3} - {4} Blue. RP before: **{5}**; RP after: **{6}**\n'.format(r['lastgameref'],g_date,pteam,m['scorered'],m['scoreblue'],r['ratingprevious'],r['ratingvalue'])
