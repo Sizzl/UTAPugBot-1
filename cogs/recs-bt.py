@@ -96,10 +96,10 @@ class PlayerBTRecords(commands.Cog):
                 if len(map) == 0 and len(player) == 0:
                     match = True
                 if len(map) > 0:
-                    if re.search(r'{0}'.format(map), r['M']) or re.search(r'{0}'.format(map), r['P']):
+                    if re.search(r'{0}'.format(map), r['M'], re.IGNORECASE) or re.search(r'{0}'.format(map), r['P'], re.IGNORECASE):
                         match = True
                 if len(player) > 0:
-                    if re.search(r'{0}'.format(player), r['M']) or re.search(r'{0}'.format(player), r['P']):
+                    if re.search(r'{0}'.format(player), r['M'], re.IGNORECASE) or re.search(r'{0}'.format(player), r['P'], re.IGNORECASE):
                         match = True
                 if match:
                     records.append({

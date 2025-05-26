@@ -2172,8 +2172,8 @@ class AssaultPug(PugTeams):
                                     p['ratingvalue'] = p['ratingvalue']+capLoseRP
                             if 'ratinghistory' in p:
                                 p['ratinghistory'] = sorted(p['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
-                                if len(p['ratinghistory']) > 150:
-                                    p['ratinghistory'][:] = p['ratinghistory'][-150:]
+                                #if len(p['ratinghistory']) > 150:
+                                #    p['ratinghistory'][:] = p['ratinghistory'][-150:]
                             p['lastgamedate'] = match['startdate']
                             p['lastgameref'] = match['gameref']
                             if player > 0:
@@ -3231,8 +3231,8 @@ class PUG(commands.Cog):
                                     'ratingbefore': r['ratingprevious'],
                                     'ratingafter': r['ratingvalue']
                                 })
-                                if len(r['ratinghistory']) > 150:
-                                     r['ratinghistory'][:] = r['ratinghistory'][-150:]
+                                #if len(r['ratinghistory']) > 150:
+                                #     r['ratinghistory'][:] = r['ratinghistory'][-150:]
                                 r['ratingprevious'] = r['ratingvalue']
                                 r['ratingvalue'] = rating
                                 r['lastgamedate'] = r['ratingdate']
@@ -4091,7 +4091,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rklist'])
     @commands.guild_only()
-    async def rkrecent(self, ctx, mode: str = '', last: int = 5, completed: str = ''):
+    async def rkrecent(self, ctx, mode: str = '', last: int = 5, matchref: str='', completed: str = ''):
         """Returns recent ranked matches"""
         if (mode in [None,'']):
             if self.pugInfo.ranked:
@@ -4113,8 +4113,23 @@ class PUG(commands.Cog):
                     if 'ratings' in x:
                         for p in x['ratings']:
                             players[p['did']] = p['dlastnick']
+                    if len(matchref):
+                        allgames = games
+                        games = []
+                        for g in allgames:
+                            if re.search(re.escape(matchref),g['gameref'], re.IGNORECASE):
+                                games.append(g)
         if len(games):
-            msg = 'Recent {0} ranked games:\n'.format(mode)
+            if len(games) > last:
+                g_limit = last
+            else:
+                g_limit = len(games)
+            if len(matchref):
+                msg = 'Most recent {0} {1} ranked games (search criteria: `{2}`):\n'.format(g_limit,mode,matchref)
+            else:
+                msg = 'Most recent {0} {1} ranked games:\n'.format(g_limit,mode)
+        elif len(matchref):
+            msg = 'No games were found for mode: {0} and search criteria `{1}` please specify valid criteria.'.format(mode,matchref)
         else:
             msg = 'No games were found for mode: {0}, please specify a valid mode.'.format(mode)
         i = 0
