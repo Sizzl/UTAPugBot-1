@@ -2102,8 +2102,8 @@ class AssaultPug(PugTeams):
         winners = []
         losers = []
         modeData = {}
-        winCap = 0
-        loseCap = 0
+        winCap = []
+        loseCap = []
         winScore = 0
         loseScore = 0
         if 'rankedgames' in rkData:
@@ -2119,15 +2119,24 @@ class AssaultPug(PugTeams):
                 losers = match['teamblue']
                 winScore = match['scorered']
                 loseScore = match['scoreblue']
-                winCap = match['capred']['id']
-                loseCap = match['capblue']['id']
+                winCap.append(match['capred']['id'])
+                loseCap.append(match['capblue']['id'])
             elif match['scoreblue'] > match['scorered']:
                 winners = match['teamblue']
                 losers = match['teamred']
                 winScore = match['scoreblue']
                 loseScore = match['scorered']
-                winCap = match['capblue']['id']
-                loseCap = match['capred']['id']
+                winCap.append(match['capblue']['id'])
+                loseCap.append( match['capred']['id'])
+            else:
+                winners = match['teamred'] + match['teamblue']
+                losers = match['teamred'] + match['teamblue']
+                winScore = match['scorered']
+                winScore = match['scoreblue']
+                winCap.append(match['capred']['id'])
+                winCap.append(match['capblue']['id'])
+                loseCap.append( match['capred']['id'])
+                loseCap.append( match['capblue']['id'])
             if void:
                 match['completed'] = False
                 log.debug('applyRankedScoring() - Voided match {0}'.format(match['gameref']))
@@ -2164,11 +2173,11 @@ class AssaultPug(PugTeams):
                             p['ratingprevious'] = p['ratingvalue']
                             if p['did'] in winners:
                                 p['ratingvalue'] = p['ratingvalue']+winRP
-                                if p['did'] == winCap:
+                                if p['did'] in winCap:
                                     p['ratingvalue'] = p['ratingvalue']+capWinRP
                             elif p['did'] in losers:
                                 p['ratingvalue'] = p['ratingvalue']+loseRP
-                                if p['did'] == loseCap:
+                                if p['did'] in loseCap:
                                     p['ratingvalue'] = p['ratingvalue']+capLoseRP
                             if 'ratinghistory' in p:
                                 p['ratinghistory'] = sorted(p['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
@@ -2931,8 +2940,10 @@ class PUG(commands.Cog):
             embedInfo = discord.Embed(color=discord.Color.red(),title='Team Red player ratings '.format(GRAPHUP),description='')
             if matchInfo['scorered'] < matchInfo['scoreblue']:
                 embedInfo.title = embedInfo.title+GRAPHDN
-            else:
+            elif matchInfo['scorered'] > matchInfo['scoreblue']:
                 embedInfo.title = embedInfo.title+GRAPHUP
+            else:
+                embedInfo.title = embedInfo.title
             report = self.ratingsPlayerReport(mode=mode,players=teamRed,matchref=matchref)
             if 'cap_name' in report and report['cap_name'] not in [None,'']:
                 embedInfo.add_field(name='Captain',value='{0}'.format(report['cap_name']),inline=True)
@@ -2950,8 +2961,10 @@ class PUG(commands.Cog):
             embedInfo = discord.Embed(color=discord.Color.blurple(),title='Team Blue player ratings ',description='Data not found')
             if matchInfo['scorered'] > matchInfo['scoreblue']:
                 embedInfo.title = embedInfo.title+GRAPHDN
-            else:
+            elif matchInfo['scorered'] < matchInfo['scoreblue']:
                 embedInfo.title = embedInfo.title+GRAPHUP
+            else:
+                embedInfo.title = embedInfo.title
             report = self.ratingsPlayerReport(mode=mode,players=teamBlue,matchref=matchref)
             if 'cap_name' in report and report['cap_name'] not in [None,'']:
                 embedInfo.add_field(name='Captain',value='{0}'.format(report['cap_name']),inline=True)
@@ -3722,7 +3735,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkgamesim','rksim'])
     @commands.guild_only()
     async def rkgamesimulation(self, ctx, player1=None, player2=None, player3=None, player4=None, player5=None, player6=None, player7=None, player8=None, player9=None, player10=None, player11=None, player12=None, player13=None, player14=None):
-        """Simulates player picks for the active ranked mode, using rules for that mode. Use player:(+-)100 modifiers to test changes."""
+        """Simulates player picks for the active ranked mode. Use player:(+-)100 modifiers to test changes."""
         if not self.pugInfo.ranked:
             await ctx.send('Ranked mode must be active for player pick simulations to occur.')
             return True
