@@ -273,6 +273,7 @@
           }
         ],
         "randomorder": false,  // randomises the final order maps are played
+        "startmapfrompick": 5, // when > 0, forces the map in the given pick order to be the warmup map
         "fixedpicklimit": 5    // fixes the amount of maps that are played (best of x)
       },
       "eligibility": "",    // if this is not empty then limit who can sign-up to a Discord role

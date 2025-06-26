@@ -328,6 +328,8 @@ class PugMaps:
         self.maps = []
         self.cooldownMaps = []
         self.cooldownCount = 0
+        self.startMapFromPick = 0
+        self.startMap = ''
 
     def __contains__(self, map):
         return map in self.maps
@@ -499,6 +501,8 @@ class PugMaps:
                     mapRatios[pick] = 1
                     log.debug('autoPickRankedMaps() - Reverted to full maplist for pick {0} of {1} [order preference {2}] - {3}'.format(str(len(simulatedMaps)+1),str(self.maxMaps),str((i+1)),pick))
                 if pick not in [None,'']:
+                    if self.startMapFromPick > 0 and self.startMapFromPick == (i+1):
+                        self.startMap = pick
                     mapTotals = 0
                     for value in mapRatios.values():
                         mapTotals += value
@@ -583,6 +587,7 @@ class PugMaps:
 
     def resetMaps(self):
         self.maps = []
+        self.startMap = ''
 
 #########################################################################################
 # CLASS
@@ -967,7 +972,7 @@ class GameServer:
         }
         return fmt
 
-    def format_post_body_setup(self, numPlayers: int, maps, mode: str):
+    def format_post_body_setup(self, numPlayers: int, maps, mode: str, startmap: str = ''):
         fmt = {
             'server': self.gameServerRef,
             'authEnabled': True,
@@ -984,6 +989,8 @@ class GameServer:
             'friendlyFireScale': MODE_CONFIG[mode].friendlyFireScale,
             'initialWait': 180
         }
+        if startmap not in ['',None] and len(startmap) > 0:
+            fmt['startMap'] = startmap
         return fmt
 
     def current_serverrefs(self):
@@ -1292,7 +1299,7 @@ class GameServer:
         log.debug('stopOnDemandServer - Invalid server selected.')
         return False
 
-    def setupMatch(self, numPlayers, maps, mode):
+    def setupMatch(self, numPlayers, maps, mode, startmap=''):
         if self.matchInProgress:
             return False
 
@@ -1331,7 +1338,7 @@ class GameServer:
         self.matchCode = ''
         self.generatePasswords()
         headers = self.format_post_header_setup
-        body = self.format_post_body_setup(numPlayers, maps, mode)
+        body = self.format_post_body_setup(numPlayers, maps, mode, startmap)
 
         r = self.makePostRequest(self.postServer, headers, body)
         if(r):
@@ -1642,8 +1649,11 @@ class AssaultPug(PugTeams):
             # Try to set up 5 times with a 5s delay between attempts.
             result = False
             self.pugTempLocked = True
+            startMap = ''
+            if self.maps.startMap not in ['',None] and self.maps.maps[-1] != self.maps.startMap:
+                startMap = self.maps.startMap # Only send this if it's not the last map in the list, otherwise it'll take longer to set up
             for x in range(0, 5):
-                result = self.gameServer.setupMatch(self.maxPlayers, self.maps.maps, self.mode)
+                result = self.gameServer.setupMatch(self.maxPlayers, self.maps.maps, self.mode, startMap)
                 log.debug('Setup attempt {0}/5: Result returned: {1}'.format(x+1,result))
                 if not result:
                     time.sleep(5)
@@ -1728,6 +1738,8 @@ class AssaultPug(PugTeams):
         # Perform any checks needed when switching between ranked and non-ranked modes
         self.maps.rankedMode = self.ranked = False
         self.maps.filteredMapsList = self.maps.availableMapsList
+        self.maps.startMapFromPick = 0
+        self.maps.startMap = ''
         self.ratings = None
         self.roleRequired = None
         if rankedMode == False and self.ratingsFile != '':
@@ -1772,6 +1784,8 @@ class AssaultPug(PugTeams):
                                 self.maps.cooldownCount = max(0, min(int(self.ratings['maps']['cooldowncount']), 5))
                             if 'fixedpicklimit' in self.ratings['maps'] and self.ratings['maps']['fixedpicklimit'] > 0:
                                 self.maps.setMaxMaps(self.ratings['maps']['fixedpicklimit'])
+                            if 'startmapfrompick' in self.ratings['maps']:
+                                self.maps.startMapFromPick = max(0, int(self.ratings['maps']['startmapfrompick']))
                             if 'maplist' in self.ratings['maps']:
                                 # build a filtered map list array from this data
                                 self.maps.filteredMapsList = []
@@ -1882,7 +1896,7 @@ class AssaultPug(PugTeams):
                             for gamedata in ratingsData['rankedgames']:
                                 if gamedata['mode'] == self.ratings['mode']:
                                     self.ratings['lastupdated'] = datetime.now().isoformat()
-                                    for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','capMode','capWindow','capRole','games','scoring','lastupdated']:
+                                    for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','lastupdated','randomorder']:
                                         if key not in self.ratings:
                                             if key in ['registrations','ratings','games']:
                                                 self.ratings[key] = []
@@ -3819,9 +3833,10 @@ class PUG(commands.Cog):
                             if 'maplist' in x['maps']:
                                 x['maps']['maplist'] = []
                             x['fixedpicklimit'] = 0
+                            x['startmapfrompick'] = 0
                         rkUpdate = True
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Map list and pick limit cleared for ranked game mode {0}'.format(mode))
+                await ctx.send('Map list, pick limit and start map settings cleared for ranked game mode {0}'.format(mode))
                 if (self.pugInfo.ranked): # reload data for current ranked mode
                     self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
             else:
@@ -3859,7 +3874,9 @@ class PUG(commands.Cog):
                         else:
                             x['maps'] = {
                                 'maplist': [],
-                                'fixedpicklimit': 0
+                                'fixedpicklimit': 0,
+                                'startmapfrompick': 0,
+                                'randomorder': True
                             }
                         for m in maps:
                             o = 0
@@ -3878,6 +3895,11 @@ class PUG(commands.Cog):
                                 'order': o,
                                 'weight': w
                             })
+                            if 'startmapfrompick' in x['maps']:
+                                if int(x['maps']['startmapfrompick']) < o:
+                                    x['maps']['startmapfrompick'] = o
+                            else:
+                                x['maps']['startmapfrompick'] = o
                         rkUpdate = True
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
                 await ctx.send('Map list updated for ranked game mode {0}'.format(mode))
@@ -3916,13 +3938,18 @@ class PUG(commands.Cog):
                             x['maps'] = {
                                 'maplist': [],
                                 'fixedpicklimit': limit,
+                                'startmapfrompick': 0,
                                 'randomorder': False
                             }
                         if len(shuffle) > 0:
+                            log.debug('rkmaplimit({0},{1}) - parsing shuffle command - {2}'.format(mode,limit,shuffle))
                             if shuffle[:1].lower() == 'o':
                                 x['maps']['randomorder'] = False
                             else:
                                 x['maps']['randomorder'] = True
+                            if shuffle[1:2].isnumeric():
+                                log.debug('rkmaplimit({0},{1}) - using start map pick reference - {2}'.format(mode,limit,str(max(0, min(int(shuffle[1:2]),limit)))))
+                                x['maps']['startmapfrompick'] = max(0, min(int(shuffle[1:2]),limit))
                         rkUpdate = True
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
                 await ctx.send('Map limit updated for ranked game mode {0}'.format(mode))
