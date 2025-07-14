@@ -2146,7 +2146,7 @@ class AssaultPug(PugTeams):
                 winners = match['teamred'] + match['teamblue']
                 losers = match['teamred'] + match['teamblue']
                 winScore = match['scorered']
-                winScore = match['scoreblue']
+                loseScore = match['scoreblue']
                 winCap.append(match['capred']['id'])
                 winCap.append(match['capblue']['id'])
                 loseCap.append( match['capred']['id'])
@@ -2189,7 +2189,7 @@ class AssaultPug(PugTeams):
                                 p['ratingvalue'] = p['ratingvalue']+winRP
                                 if p['did'] in winCap:
                                     p['ratingvalue'] = p['ratingvalue']+capWinRP
-                            elif p['did'] in losers:
+                            if p['did'] in losers:
                                 p['ratingvalue'] = p['ratingvalue']+loseRP
                                 if p['did'] in loseCap:
                                     p['ratingvalue'] = p['ratingvalue']+capLoseRP
@@ -3942,13 +3942,11 @@ class PUG(commands.Cog):
                                 'randomorder': False
                             }
                         if len(shuffle) > 0:
-                            log.debug('rkmaplimit({0},{1}) - parsing shuffle command - {2}'.format(mode,limit,shuffle))
                             if shuffle[:1].lower() == 'o':
                                 x['maps']['randomorder'] = False
                             else:
                                 x['maps']['randomorder'] = True
                             if shuffle[1:2].isnumeric():
-                                log.debug('rkmaplimit({0},{1}) - using start map pick reference - {2}'.format(mode,limit,str(max(0, min(int(shuffle[1:2]),limit)))))
                                 x['maps']['startmapfrompick'] = max(0, min(int(shuffle[1:2]),limit))
                         rkUpdate = True
             if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
