@@ -47,15 +47,15 @@ DEFAULT_CONFIG_FILE = 'servers/config.json'
 DEFAULT_RATING_FILE = 'players/ratings.json'
 
 # Valid modes with default config
-Mode = collections.namedtuple('Mode', 'isRanked minPlayers maxPlayers friendlyFireScale gameType mutators')
+Mode = collections.namedtuple('Mode', 'name isRanked minPlayers maxPlayers friendlyFireScale gameType mutators')
 MODE_CONFIG = {
-    'stdAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', None),
-    'proAS': Mode(False, 2, 20, 100, 'LeagueAS140.LeagueAssault', None),
-    'ASplus': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'rASplus': Mode(True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS'),
-    'proASplus': Mode(False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'pcASplus': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC'),
-    'ZPiAS': Mode(False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
+    'stdAS': Mode('Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', None),
+    'proAS': Mode('Pro Assault', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', None),
+    'ASplus': Mode('Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
+    'rASplus': Mode('Ranked Assault', True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS'),
+    'proASplus': Mode('Pro Assault Plus', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
+    'pcASplus': Mode('Ping-Compensated Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC'),
+    'ZPiAS': Mode('InstaGib Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
 }
 
 RED_PASSWORD_PREFIX = 'RP'
@@ -1810,19 +1810,18 @@ class AssaultPug(PugTeams):
                 if self.maxPlayers > MODE_CONFIG[requestedMode].maxPlayers:
                     self.setMaxPlayers(MODE_CONFIG[requestedMode].maxPlayers)
                 self.mode = requestedMode
+                self.name = MODE_CONFIG[requestedMode].name
                 additionalInfo = ''
                 if MODE_CONFIG[requestedMode].isRanked:
                     log.debug('Setting up ranked mode - {0}'.format(requestedMode))
                     if self.setRankedMode(MODE_CONFIG[requestedMode].isRanked, False):
-                        self.desc = 'Ranked Assault (' + self.mode + ') PUG'
                         additionalInfo = ' (ranked, best of '+str(self.maps.maxMaps)+' maps)'
                     else:
                         log.debug('setRankedMode({0}) failed'.format(MODE_CONFIG[requestedMode].isRanked))
                         self.mode = lastMode # Revert if ratings failed to load for this game mode    
                 else:
                     self.setRankedMode(False, False)
-                if self.ranked != True:
-                    self.desc = 'Assault (' + self.mode + ') PUG'
+                self.desc = self.name + ' (' + self.mode + ') PUG'
                 if (self.mode == requestedMode):
                     return True, 'Pug mode changed to: **' + self.mode + '**' + additionalInfo
                 else:
