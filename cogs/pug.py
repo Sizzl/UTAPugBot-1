@@ -2063,6 +2063,10 @@ class AssaultPug(PugTeams):
                             g['completed'] = hasEnded
                             if (hasEnded):
                                 g['enddate'] = timeEnded
+                            if len(self.red) > 0:
+                                g['teamred'] = self.returnPIDs(self.red)
+                            if len(self.blue) > 0:
+                                g['teamblue'] = self.returnPIDs(self.blue)
                             g['completed'] = hasEnded
                             if hasEnded:
                                 rkData = self.applyRankedScoring(rkData, mode, g)
