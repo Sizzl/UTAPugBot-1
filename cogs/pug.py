@@ -3673,7 +3673,7 @@ class PUG(commands.Cog):
                     endpoint = '{0}?&matchcode={1}'.format(self.pugInfo.ratingsSyncAPI['matchDataURL'],item)
                 else:
                     rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
-                    endpoint = '{0}?&matchcode={1}'.format(rkData.ratingsSyncAPI['matchDataURL'],item)
+                    endpoint = '{0}?&matchcode={1}'.format(rkData['syncapi']['matchDataURL'],item)
                 log.debug('rksync() - Fetching provided match from API: {0}'.format(endpoint))
                 await ctx.send('{0} match `{1}` from {2}...'.format('Fetching',item,'Sync API'))
                 syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
@@ -3706,9 +3706,11 @@ class PUG(commands.Cog):
                         else:
                             invalid_players.append(s['playername'])
                     if redcap not in ['',None] and redcap.id in g_red:
+                        log.debug('rksync() - Overriding Red captain from: {0}, to: {1}'.format(g_red[0],redcap.id))
                         g_red.remove(redcap.id)
                         g_red.insert(0,redcap.id)
                     if bluecap not in ['',None] and bluecap.id in g_blue:
+                        log.debug('rksync() - Overriding Blue captain from: {0}, to: {1}'.format(g_blue[0],bluecap.id))
                         g_blue.remove(bluecap.id)
                         g_blue.insert(0,bluecap.id)
                     for m in syData['maps']:
