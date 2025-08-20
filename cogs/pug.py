@@ -3635,7 +3635,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rksync(self, ctx, mode: str = 'rASPlus', item: str = '', direction: str = 'outbound'):
+    async def rksync(self, ctx, mode: str = 'rASPlus', item: str = '', direction: str = 'outbound', redcap: discord.Member = None, bluecap: discord.Member = None):
         if (self.pugInfo.pugLocked):
             await ctx.send('Ranked data cannot be synchronised while a game is in progress. Please try again later.')
             return True
@@ -3701,6 +3701,12 @@ class PUG(commands.Cog):
                                     log.debug('rksync() - Player lookup failed for ID: {0}'.format(s['did']))
                         else:
                             invalid_players.append(s['playername'])
+                    if redcap not in ['',None] and redcap.id in g_red:
+                        g_red.remove(redcap.id)
+                        g_red.insert(0,redcap.id)
+                    if bluecap not in ['',None] and bluecap.id in g_blue:
+                        g_blue.remove(bluecap.id)
+                        g_blue.insert(0,bluecap.id)
                     for m in syData['maps']:
                         if 'map' in m and m['map'] not in g_maps:
                             g_maps.append(m['map'])
@@ -3716,6 +3722,7 @@ class PUG(commands.Cog):
                             if len(g_red) == len(g_blue):
                                 log.debug('rksync() - Match marked as completed successfully.')
                                 await self.rkvoidmatch(ctx,mode,item)
+                                await ctx.send('Match data synchronised successfully.')
                         return True
                 if syData == None:
                     await ctx.send('Could not sync match `{0}` for mode {1}. API requests throttled, please try again in 10s.'.format(item, mode))
