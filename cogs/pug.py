@@ -3669,7 +3669,11 @@ class PUG(commands.Cog):
                 # await ctx.send('{0} {1} data from {2}...'.format('Fetching',item,'Sync API'))
                 await ctx.send('Synchronisation of {0} data for `{1}` has not yet been implemented.'.format(item, mode))
             else:
-                endpoint = '{0}?&matchcode={1}'.format(self.pugInfo.ratingsSyncAPI['matchDataURL'],item)
+                if self.pugInfo.ranked:
+                    endpoint = '{0}?&matchcode={1}'.format(self.pugInfo.ratingsSyncAPI['matchDataURL'],item)
+                else:
+                    rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+                    endpoint = '{0}?&matchcode={1}'.format(rkData.ratingsSyncAPI['matchDataURL'],item)
                 log.debug('rksync() - Fetching provided match from API: {0}'.format(endpoint))
                 await ctx.send('{0} match `{1}` from {2}...'.format('Fetching',item,'Sync API'))
                 syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
