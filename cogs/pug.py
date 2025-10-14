@@ -55,6 +55,7 @@ MODE_CONFIG = {
     'rASplus': Mode('Ranked Assault', True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS'),
     'proASplus': Mode('Pro Assault Plus', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
     'pcASplus': Mode('Ping-Compensated Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC'),
+    'rASpc': Mode('Ping-Compensated Ranked AS', True, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC,rAS140.RankedAS'),
     'ZPiAS': Mode('InstaGib Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
 }
 
