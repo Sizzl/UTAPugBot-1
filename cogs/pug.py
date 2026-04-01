@@ -55,7 +55,7 @@ MODE_CONFIG = {
     'rASplus': Mode('Ranked Assault', True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS'),
     'proASplus': Mode('Pro Assault Plus', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
     'pcASplus': Mode('Ping-Compensated Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC'),
-    'rASpc': Mode('Ping-Compensated Ranked AS', True, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC,rAS140.RankedAS'),
+    'rASpc': Mode('Ping-Compensated Ranked AS', True, 8, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC,rAS140.RankedAS'),
     'ZPiAS': Mode('InstaGib Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
 }
 
@@ -2901,16 +2901,14 @@ class PUG(commands.Cog):
 
     def ratingsMatchInfo(self, mode, matchCode: str = ''):
         matchInfo = {}
-        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
-            rkData = {'rankedgames':[]}
-            rkData['rankedgames'].append(self.pugInfo.ratings)
-        else:
-            if self.pugInfo.pugLocked != True:
-                self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if self.pugInfo.pugLocked != True:
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
+                    if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
+                        x = self.pugInfo.ratings # stamp cached ratings back
                     if 'games' in x:
                         if matchCode == 'last':
                             matchInfo = sorted(x['games'], key=lambda g: datetime.fromisoformat(g['startdate']), reverse=True)[0]
@@ -3104,20 +3102,17 @@ class PUG(commands.Cog):
         return report
     
     def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False, additionalid: int = 0):
-        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
-            log.debug('ratingsPlayerDataHandler() using cached ratings')
-            rkData = {'rankedgames':[]}
-            rkData['rankedgames'].append(self.pugInfo.ratings)
-        else:
-            log.debug('ratingsPlayerDataHandler() reloading data from JSON file')
-            if self.pugInfo.pugLocked != True:
-                self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        log.debug('ratingsPlayerDataHandler() reloading data from JSON file')
+        if self.pugInfo.pugLocked != True:
+            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
         rkReload = False
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' not in x:
                     rkReload = True
+                elif 'mode' in x and self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
+                    x = self.pugInfo.ratings # stamp cached ratings back
         if rkReload:
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
             rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
