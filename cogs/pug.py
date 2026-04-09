@@ -1671,8 +1671,8 @@ class AssaultPug(PugTeams):
     def storeLastPug(self, appendstr: str = '', redScore: int = 0, blueScore: int = 0, matchCode: str = '', viaReset: bool = False):
         if self.matchReady:
             fmt = []
-            if matchCode in [None,'']:
-                if self.gameServer.matchCode in [None,'']:
+            if matchCode in [None,'','N/A']:
+                if self.gameServer.matchCode in [None,'','N/A']:
                     self.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
                 matchCode = self.gameServer.matchCode
             fmt.append('Last **{}** ({} ago)'.format(self.desc, '{}'))
