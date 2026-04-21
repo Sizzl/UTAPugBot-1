@@ -3711,7 +3711,10 @@ class PUG(commands.Cog):
                                 else:
                                     log.debug('rksync() - Player lookup failed for ID: {0}'.format(s['did']))
                         else:
-                            invalid_players.append(s['playername'])
+                            if 'teamcode' in s and s['teamcode'] > 250:
+                                log.debug('rksync() - Player spectating: {0}'.format(s['playername']))
+                            else:
+                                invalid_players.append(s['playername'])
                     if redcap not in ['',None] and redcap.id in g_red:
                         log.debug('rksync() - Overriding Red captain from: {0}, to: {1}'.format(g_red[0],redcap.id))
                         g_red.remove(redcap.id)
