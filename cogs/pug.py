@@ -915,12 +915,19 @@ class GameServer:
                 self.utQueryData[part[0]] = part[1]
             self.utQueryData['code'] = 200
             self.utQueryData['lastquery'] = int(time.time())
+            self.utQueryData['attempts'] = 0
         except socket.timeout:
             log.error('UDP socket timeout when connecting to {0}:{1} to perform a query: {2}'.format(self.utQueryData['ip'], self.utQueryData['query_port'],queryType))
             self.utQueryData['status'] = 'Timeout connecting to server.'
             self.utQueryData['code'] = 408
             self.utQueryData['lastquery'] = 0
-
+            if 'attempts' not in self.utQueryData:
+                self.utQueryData['attempts'] = 0
+            self.utQueryData['attempts'] += 1
+            if self.utQueryData['attempts'] >= 30:
+                self.utQueryData['status'] = 'Failed to connect to server after 30 attempts.'
+                self.utQueryReporterActive = False
+                self.utQueryStatsActive = False
         return True
 
     #########################################################################################
@@ -2032,12 +2039,12 @@ class AssaultPug(PugTeams):
         """Stores ranked pug match data and handles end-game scenarios"""
         if mode in [None, ''] and self.ranked:
             mode = self.mode
-        if matchCode in [None,'']:
-            if self.gameServer.matchCode in [None,'']:
+        if matchCode in [None,'','N/A']:
+            if self.gameServer.matchCode in [None,'','N/A']:
                 self.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
             matchCode = self.gameServer.matchCode
             log.debug('storeRankedPug() - grabbed mode from gameServer.matchCode - {0}'.format(matchCode))
-        if matchCode in [None,'']:
+        if matchCode in [None,'','N/A']:
             return False
         if hasEnded:
             timeEnded = datetime.now().isoformat()
@@ -4575,6 +4582,31 @@ class PUG(commands.Cog):
                 await self.processPugStatus(ctx)
         else:
             await ctx.send('Map limit unchanged. Map limit is {}'.format(self.pugInfo.maps.maxMapsLimit))
+
+    @commands.hybrid_command(aliases = ['adminendmatch','endmatch'])
+    @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
+    @commands.check(admin.hasManagerRole_Check)
+    async def rkendmatch(self, ctx, matchCode: str = ''):
+        """Forcefully ends the current ranked match, with a match code for post-match processing."""
+        if (matchCode not in [None, ''] and self.pugInfo.ranked and (self.pugInfo.pugLocked or self.pugInfo.gameServer.matchInProgress) or matchCode.lower() == 'force'):
+            if matchCode.lower() == 'force':
+                await ctx.send('Force ending match without match code. RP may not be updated correctly.')
+                if self.pugInfo.gameServer.matchCode in [None,'','N/A'] or (self.pugInfo.gameServer.matchCode not in [None,'','N/A'] and len(self.pugInfo.gameServer.matchCode) < 6):
+                    self.pugInfo.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
+                await self.endMatch(False)
+                return
+            endpoint = '{0}?&matchcode={1}'.format(self.pugInfo.ratingsSyncAPI['matchDataURL'],matchCode)
+            log.debug('rksync() - Fetching provided match from API: {0}'.format(endpoint))
+            syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
+            if syData not in [{},None,''] and 'match_summary' in syData:
+                await ctx.send('Ending match with valid match code `{0}`'.format(matchCode) if matchCode else '')
+                self.pugInfo.gameServer.matchCode = matchCode
+                await self.endMatch(False)
+            else:
+                await ctx.send('Invalid match code provided. Please verify with Pug Stats and try again.')
+        else:
+            await ctx.send('No ranked match is currently in progress.')
 
     @commands.hybrid_command()
     @commands.guild_only()
