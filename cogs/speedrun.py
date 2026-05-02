@@ -5,8 +5,10 @@ import os
 import re
 from discord.ext.commands import CheckFailure
 
+TIME_REGEX = r"^\d{1,2}:\d{2}\.\d{3}$"
 RECORDS_FILE = "speedrun/records.json"
 PENDING_FILE = "speedrun/pending.json"
+SETTINGS_FILE = "speedrun/settings.json"
 
 VALID_MAPS = [
     "AsthenosphereSE", "AutoRIP", "Ballistic", "Bridge", "Desertstorm", "Desolate][", "DustbowlALRev04",
@@ -14,19 +16,8 @@ VALID_MAPS = [
     "OceanFloorAL", "RiverbedSE", "Riverbed]l[AL", "Rook", "Siege][", "Submarinebase][",
     "TheDungeon]l[AL", "TheScarabSE", "Vampire"
 ]
-
 ADMIN_IDS = {244823882605920266, 189485300001538048, 254223470408237057}
-
 TARGET_CHANNEL_ID = 788823535597649920
-
-TIME_REGEX = r"^\d{1,2}:\d{2}\.\d{3}$"
-
-def is_admin():
-    async def predicate(ctx):
-        if ctx.author.id in ADMIN_IDS:
-            return True
-        raise CheckFailure("You do not have permission to use this command.")
-    return commands.check(predicate)
 
 def parse_time_to_seconds(time_str):
     match = re.match(r'^(\d+):([0-5]?\d)\.(\d{1,3})$', time_str)
@@ -39,7 +30,6 @@ def parse_time_to_seconds(time_str):
         return total_seconds
     except ValueError:
         return None
-
 
 def load_data(filename):
     if not os.path.exists(filename):
@@ -60,18 +50,48 @@ def save_data(filename, data):
         json.dump(data, f, indent=2)
 
 class Speedrun(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, channel=TARGET_CHANNEL_ID, admins=ADMIN_IDS, maplist=VALID_MAPS, settingsFile=SETTINGS_FILE):
         self.bot = bot
+        self.channel = channel
+        self.admins = admins
+        self.maplist = maplist
+        self.settingsFile = settingsFile
+        self.load_settings(filename=self.settingsFile)
+
+    def load_settings(self, filename):
+        if not os.path.exists(filename):
+            return
+        settings = None
+        with open(filename, "r") as f:
+            try:
+                settings = json.load(f)
+            except:
+                settings = None
+        if settings is not None:
+            if 'adminIDs' in settings:
+                self.admins = settings['adminIDs']
+            if 'targetChannelId' in settings:
+                self.channel = settings['targetChannelId']
+            if 'validMaps' in settings:
+                self.maplist = settings['validMaps']
+        return
+
+    def is_admin():
+        async def predicate(ctx):
+            if ctx.author.id in self.admins:
+                return True
+            raise CheckFailure("You do not have permission to use this command.")
+        return commands.check(predicate)
 
     def cog_check(self, ctx):
-        if ctx.channel.id != TARGET_CHANNEL_ID:
+        if ctx.channel.id != self.channel:
             raise CheckFailure("Wrong channel")
         return True
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, CheckFailure) and str(error) == "Wrong channel":
-            await ctx.send(f"🚫 This command can only be used in <#{TARGET_CHANNEL_ID}>.")
+            await ctx.send(f"🚫 This command can only be used in <#{self.channel}>.")
 
     @commands.command(name="leaderboard", aliases=["lb"])
     async def leaderboard(self, ctx, *, map_name: str = None):
@@ -212,8 +232,8 @@ class Speedrun(commands.Cog):
             await ctx.send("⚠️ Usage: `.submit <map_name> <mm:ss.sss> <screenshot_link>`")
             return
 
-        if map_name not in VALID_MAPS:
-            await ctx.send(f"❌ Invalid map. Try one of: `{', '.join(VALID_MAPS)}`")
+        if map_name not in self.maplist:
+            await ctx.send(f"❌ Invalid map. Try one of: `{', '.join(self.maplist)}`")
             return
 
         try:
