@@ -48,16 +48,16 @@ DEFAULT_CONFIG_FILE = 'servers/config.json'
 DEFAULT_RATING_FILE = 'players/ratings.json'
 
 # Valid modes with default config
-Mode = collections.namedtuple('Mode', 'name isRanked minPlayers maxPlayers friendlyFireScale gameType mutators')
+Mode = collections.namedtuple('Mode', 'name isRanked minPlayers maxPlayers friendlyFireScale gameType mutators modeGroup')
 MODE_CONFIG = {
-    'stdAS': Mode('Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', None),
-    'proAS': Mode('Pro Assault', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', None),
-    'ASplus': Mode('Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'rASplus': Mode('Ranked Assault', True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS'),
-    'proASplus': Mode('Pro Assault Plus', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus'),
-    'pcASplus': Mode('Ping-Compensated Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC'),
-    'rASpc': Mode('Ping-Compensated Ranked AS', True, 8, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC,rAS140.RankedAS'),
-    'ZPiAS': Mode('InstaGib Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib')
+    'stdAS': Mode('Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', None, 0),
+    'proAS': Mode('Pro Assault', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', None, 0),
+    'ASplus': Mode('Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus', 1),
+    'rASplus': Mode('Ranked Assault', True, 8, 14, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus,rAS140.RankedAS', 1),
+    'proASplus': Mode('Pro Assault Plus', False, 2, 20, 100, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlus', 1),
+    'pcASplus': Mode('Ping-Compensated Assault Plus', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC', 2),
+    'rASpc': Mode('Ping-Compensated Ranked AS', True, 8, 20, 0, 'LeagueAS140.LeagueAssault', 'LeagueAS-SP.ASPlusPC,rAS140.RankedAS', 2),
+    'ZPiAS': Mode('InstaGib Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib', 0)
 }
 
 RED_PASSWORD_PREFIX = 'RP'
@@ -1452,10 +1452,11 @@ class GameServer:
 #########################################################################################
 class AssaultPug(PugTeams):
     """Represents a Pug of 2 teams (to be selected), a set of maps to be played and a server to play on."""
-    def __init__(self, numPlayers, numMaps, pickModeTeams, pickModeMaps, configFile=DEFAULT_CONFIG_FILE, ratingsFile=DEFAULT_RATING_FILE):
+    def __init__(self, numPlayers, numMaps, pickModeTeams, pickModeMaps, configFile=DEFAULT_CONFIG_FILE, ratingsFile=DEFAULT_RATING_FILE, modeLimit=0):
         super().__init__(numPlayers, pickModeTeams)
         self.name = 'Assault'
         self.mode = 'stdAS'
+        self.modeLimit = modeLimit
         self.lastPlayedMode = 'stdAS'
         self.matchReportPending = False
         self.desc = self.name + ': ' + self.mode + ' PUG'
@@ -1467,6 +1468,7 @@ class AssaultPug(PugTeams):
         self.bluePower = 0
         self.ratings = None
         self.ratingsFile = ratingsFile
+        log.debug('AssaultPug instance created with ratings file: {0}'.format(self.ratingsFile))
         self.ratingsSyncAPI = {'matchDataURL':'','ratingsDataURL':'','playerDataURL':'','apiKey':''}
 
         self.maps = PugMaps(numMaps, pickModeMaps, self.ranked, self.servers[self.serverIndex].configMaps)
@@ -1805,11 +1807,13 @@ class AssaultPug(PugTeams):
                                 self.maps.mapListWeighting = self.ratings['maps']['maplist']
         return self.ranked
     
-    def setMode(self, requestedMode: str):
+    def setMode(self, requestedMode: str, ignoreLimits: bool = False):
         # Dictionaries are case sensitive, so we'll do a map first to test case-insensitive input, then find the actual key after
         if requestedMode.upper() in map(str.upper, MODE_CONFIG):
             ## Iterate through the keys to find the actual case-insensitive mode
             requestedMode = next((key for key, value in MODE_CONFIG.items() if key.upper()==requestedMode.upper()), None)
+            if (self.modeLimit > 0 and MODE_CONFIG[requestedMode].modeGroup not in [0, self.modeLimit]) and ignoreLimits == False:
+                return False, 'Mode limitations are in effect in this channel. Please select from a list of valid modes.'
             lastMode = self.mode
             ## ProAS and iAS are played with a different maximum number of players.
             ## Can't change mode from std to pro/ias if more than the maximum number of players allowed for these modes are signed.
@@ -1847,11 +1851,13 @@ class AssaultPug(PugTeams):
         """Loads the ranked game ratings data from the JSON configuration file"""
         self.ratings = None # save before load?
         log.debug('loadPugRatings({0}) started'.format(ratingsFile))
-        with open(ratingsFile) as f:
+        with open(ratingsFile, 'r') as f:
+            log.debug('loadPugRatings({0}) json.load enter'.format(ratingsFile))
             try:
                 ratingsData = json.load(f)
             except:
                 ratingsData = None
+            log.debug('loadPugRatings({0}) json.load finished'.format(ratingsFile))
             if ratingsData:
                 if returnDataOnly: # For in-line updates
                     return ratingsData
@@ -2264,7 +2270,7 @@ class PUG(commands.Cog):
         self.customAnimatedEmojis = {}
         self.utReporterChannel = None
         self.pugInstances = {}
-        self._defaultPugInfo = AssaultPug(DEFAULT_PLAYERS, DEFAULT_MAPS, DEFAULT_PICKMODETEAMS, DEFAULT_PICKMODEMAPS, configFile)
+        self._defaultPugInfo = AssaultPug(numPlayers=DEFAULT_PLAYERS, numMaps=DEFAULT_MAPS, pickModeTeams=DEFAULT_PICKMODETEAMS, pickModeMaps=DEFAULT_PICKMODEMAPS, configFile=DEFAULT_CONFIG_FILE, ratingsFile=DEFAULT_RATING_FILE, modeLimit=0)
         self.configFile = configFile
 
         self.loadPugConfig(configFile)
@@ -2311,7 +2317,7 @@ class PUG(commands.Cog):
         if channel is None:
             return self._defaultPugInfo
         if channel.id not in self.pugInstances:
-            self.pugInstances[channel.id] = AssaultPug(DEFAULT_PLAYERS, DEFAULT_MAPS, DEFAULT_PICKMODETEAMS, DEFAULT_PICKMODEMAPS, self.configFile)
+            self.pugInstances[channel.id] = AssaultPug(numPlayers=DEFAULT_PLAYERS, numMaps=DEFAULT_MAPS, pickModeTeams=DEFAULT_PICKMODETEAMS, pickModeMaps=DEFAULT_PICKMODEMAPS, configFile=DEFAULT_CONFIG_FILE, ratingsFile=DEFAULT_RATING_FILE, modeLimit=0)
         return self.pugInstances[channel.id]
 
     def set_active_channel(self, channel):
@@ -2474,8 +2480,10 @@ class PUG(commands.Cog):
                         pug = self.get_pug_for_channel(channel)
                         if 'current' in channel_info and isinstance(channel_info['current'], dict):
                             current = channel_info['current']
+                            if 'modelimit' in current:
+                                pug.modeLimit = current['modelimit']
                             if 'mode' in current:
-                                pug.setMode(current['mode'])
+                                pug.setMode(current['mode'], True)
                             if 'playerlimit' in current:
                                 pug.setMaxPlayers(current['playerlimit'])
                             if 'maxmaps' in current:
@@ -2506,6 +2514,7 @@ class PUG(commands.Cog):
                         if channel and channel.id in self.pugInstances:
                             self.activeChannel = channel
                 elif 'activechannelid' in info['pug']:
+                    # Fall back to single-channel mode
                     channelID = info['pug']['activechannelid']
                     channel = discord.Client.get_channel(self.bot, channelID)
                     log.info('Loaded active channel id: {0} => channel: {1}'.format(channelID, channel))
@@ -2514,8 +2523,10 @@ class PUG(commands.Cog):
                         pug = self.get_pug_for_channel(channel)
                         if 'current' in info['pug']:
                             current = info['pug']['current']
+                            if 'modelimit' in current:
+                                pug.modeLimit = current['modelimit']
                             if 'mode' in current:
-                                pug.setMode(current['mode'])
+                                pug.setMode(current['mode'],True)
                             if 'playerlimit' in current:
                                 pug.setMaxPlayers(current['playerlimit'])
                             if 'maxmaps' in current:
@@ -2570,6 +2581,7 @@ class PUG(commands.Cog):
                 channel_cfg['current'] = {
                     'timesaved': datetime.now().isoformat(),
                     'mode': pug.mode,
+                    'modelimit': pug.modeLimit,
                     'playerlimit': pug.maxPlayers,
                     'maxmaps': pug.maps.maxMaps
                 }
@@ -3468,6 +3480,24 @@ class PUG(commands.Cog):
         self.set_active_channel(ctx.message.channel)
         self.savePugConfig(self.configFile)
         await ctx.send('PUG commands are enabled in {}'.format(ctx.message.channel.mention))
+
+    @commands.hybrid_command(aliases=['limitmodes'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def modelimit(self, ctx, modeGroup: str):
+        """Limits which modes can be selected in this channel. Admin only."""
+        if ctx.message.channel.id in self.pugInstances:
+            if modeGroup.upper() == 'ALL' or int(modeGroup) == 0:
+                self.pugInstances[ctx.message.channel.id].modeLimit = 0
+                await ctx.send('Mode limit removed in {0}.'.format(ctx.message.channel.mention))
+                await self.listmodes(ctx)
+                return
+            elif int(modeGroup) > 0:
+                self.pugInstances[ctx.message.channel.id].modeLimit = int(modeGroup)
+            await ctx.send('Mode limit set to group \'{0}\' in {1}'.format(modeGroup, ctx.message.channel.mention))
+            await self.listmodes(ctx)
+            return
+        await ctx.send('This is not an active PUG channel.')
 
     @commands.command()
     @commands.guild_only()
@@ -4655,9 +4685,10 @@ class PUG(commands.Cog):
     @commands.check(isActiveChannel_Check)
     async def listmodes(self, ctx):
         """Lists available modes for the pug"""
-        outStr = ['Available modes are:']
+        outStr = ['Available modes in this channel, are:']
         for k in MODE_CONFIG:
-            outStr.append(PLASEP + '**' + k + '**')
+            if (self.pugInfo.modeLimit > 0 and MODE_CONFIG[k].modeGroup in [0, self.pugInfo.modeLimit]) or self.pugInfo.modeLimit == 0:
+                outStr.append(PLASEP + '**' + k + '**')
         outStr.append(PLASEP)
         await ctx.send(' '.join(outStr))
 
@@ -4665,7 +4696,7 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
-    async def setmode(self, ctx, mode):
+    async def setmode(self, ctx, mode: str):
         """Sets mode of the pug"""
         if self.pugInfo.captainsReady:
             await ctx.send('Pug already in picking mode. Reset if you wish to change mode.')
