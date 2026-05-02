@@ -40,6 +40,7 @@ DEFAULT_GAME_SERVER_REF = 'pugs1'
 DEFAULT_GAME_SERVER_IP = '0.0.0.0'
 DEFAULT_GAME_SERVER_PORT = '7777'
 DEFAULT_GAME_SERVER_NAME = 'Unknown Server'
+DEFAULT_ACCOUNT_URL = 'https://utassault.net/discord/link'
 DEFAULT_POST_SERVER = 'https://utassault.net'
 DEFAULT_POST_TOKEN = 'NoToken'
 DEFAULT_THUMBNAIL_SERVER = '{0}/pugstats/images/maps/'.format(DEFAULT_POST_SERVER)
@@ -1037,6 +1038,7 @@ class GameServer:
             'FI':':flag_fi:',
             'HU':':flag_hu:',
             'NO':':flag_no:',
+            'IS':':flag_is:',
             'CN':':flag_cn:',
             'XX':':pirate_flag:',
             'GP':':rainbow_flag:',
@@ -2261,7 +2263,8 @@ class PUG(commands.Cog):
         self.customStaticEmojis = {}
         self.customAnimatedEmojis = {}
         self.utReporterChannel = None
-        self.pugInfo = AssaultPug(DEFAULT_PLAYERS, DEFAULT_MAPS, DEFAULT_PICKMODETEAMS, DEFAULT_PICKMODEMAPS, configFile)
+        self.pugInstances = {}
+        self._defaultPugInfo = AssaultPug(DEFAULT_PLAYERS, DEFAULT_MAPS, DEFAULT_PICKMODETEAMS, DEFAULT_PICKMODEMAPS, configFile)
         self.configFile = configFile
 
         self.loadPugConfig(configFile)
@@ -2293,6 +2296,31 @@ class PUG(commands.Cog):
         self.lastPokeTime = datetime.now()
         self.lastAPISyncTime = datetime.now()
 
+    @property
+    def pugInfo(self):
+        if self.activeChannel is None:
+            return self._defaultPugInfo
+        return self.pugInstances.get(self.activeChannel.id, self._defaultPugInfo)
+
+    def get_pug_for_channel(self, channel):
+        if channel is None:
+            return self._defaultPugInfo
+        return self.pugInstances.get(channel.id, self._defaultPugInfo)
+
+    def ensure_pug_for_channel(self, channel):
+        if channel is None:
+            return self._defaultPugInfo
+        if channel.id not in self.pugInstances:
+            self.pugInstances[channel.id] = AssaultPug(DEFAULT_PLAYERS, DEFAULT_MAPS, DEFAULT_PICKMODETEAMS, DEFAULT_PICKMODEMAPS, self.configFile)
+        return self.pugInstances[channel.id]
+
+    def set_active_channel(self, channel):
+        if channel is None:
+            return None
+        self.activeChannel = channel
+        self.ensure_pug_for_channel(channel)
+        return channel
+
     def cog_unload(self):
         self.updateGameServer.cancel()
         self.sendMatchReport.cancel()
@@ -2306,29 +2334,34 @@ class PUG(commands.Cog):
 #########################################################################################
     @tasks.loop(seconds=60.0)
     async def updateGameServer(self):
-        queueCheck = False
-        if self.pugInfo.pugLocked:
-            log.info('Updating game server [pugLocked=True]..')
-            if not self.pugInfo.gameServer.updateServerStatus():
+        for channel_id, pug in list(self.pugInstances.items()):
+            if not pug.pugLocked:
+                continue
+            queueCheck = False
+            log.info('Updating game server for channel {0} [pugLocked=True]..'.format(channel_id))
+            if not pug.gameServer.updateServerStatus():
                 log.warning('Cannot contact game server.')
-            if len(self.pugInfo.queuedPlayers):
+            if len(pug.queuedPlayers):
                 queueCheck = True
-            if self.pugInfo.gameServer.processMatchFinished():
+            if pug.gameServer.processMatchFinished():
                 self.savePugConfig(self.configFile)
+                channel = discord.Client.get_channel(self.bot, channel_id)
+                if channel is None:
+                    continue
                 msg = 'Match finished. Resetting pug'
-                if (self.pugInfo.ranked):
-                    msg = msg+' and updating player RP.'
-                    await self.activeChannel.send(msg)
+                if pug.ranked:
+                    msg = msg + ' and updating player RP.'
+                    await channel.send(msg)
                 else:
-                    msg = msg+'...'
-                    await self.activeChannel.send(msg)
-                if self.pugInfo.resetPug():
-                    await self.activeChannel.send(self.pugInfo.format_pug())
+                    msg = msg + '...'
+                    await channel.send(msg)
+                if pug.resetPug():
+                    await channel.send(pug.format_pug())
                     log.info('Match over.')
-                    if queueCheck and self.pugInfo.playersFull:
-                        await self.activeChannel.send('Queued players have been added and the pug is full. When ready, start the next pug by sending !pug')
-                    return
-                await self.activeChannel.send('Reset failed.')
+                    if queueCheck and pug.playersFull:
+                        await channel.send('Queued players have been added and the pug is full. When ready, start the next pug by sending !pug')
+                    continue
+                await channel.send('Reset failed.')
                 log.error('Reset failed')
 
     @updateGameServer.before_loop
@@ -2339,8 +2372,15 @@ class PUG(commands.Cog):
 
     @tasks.loop(seconds=4.0)
     async def updateUTQueryReporter(self):
-        if self.pugInfo.gameServer.utQueryReporterActive and self.utReporterChannel is not None:
-            await self.queryServerConsole()
+        if self.utReporterChannel is None:
+            return
+        for channel_id, pug in self.pugInstances.items():
+            if pug.gameServer.utQueryReporterActive:
+                channel = discord.Client.get_channel(self.bot, channel_id)
+                if channel is None:
+                    continue
+                self.activeChannel = channel
+                await self.queryServerConsole()
         return
 
     @updateUTQueryReporter.before_loop
@@ -2349,13 +2389,19 @@ class PUG(commands.Cog):
 
     @tasks.loop(seconds=60.0)
     async def updateUTQueryStats(self):
-        if self.utReporterChannel is not None:
-            if self.pugInfo.gameServer.utQueryStatsActive:
-                if ('laststats' not in self.pugInfo.gameServer.utQueryData) or ('laststats' in self.pugInfo.gameServer.utQueryData and int(time.time())-int(self.pugInfo.gameServer.utQueryData['laststats']) > 55):
+        if self.utReporterChannel is None:
+            return
+        for channel_id, pug in self.pugInstances.items():
+            channel = discord.Client.get_channel(self.bot, channel_id)
+            if channel is None:
+                continue
+            self.activeChannel = channel
+            if pug.gameServer.utQueryStatsActive:
+                if ('laststats' not in pug.gameServer.utQueryData) or ('laststats' in pug.gameServer.utQueryData and int(time.time()) - int(pug.gameServer.utQueryData['laststats']) > 55):
                     await self.queryServerStats()
-            elif self.pugInfo.gameServer.utQueryReporterActive and self.pugInfo.pugLocked:
+            elif pug.gameServer.utQueryReporterActive and pug.pugLocked:
                 # Skip one cycle, then re-enable stats
-                self.pugInfo.gameServer.utQueryStatsActive = True
+                pug.gameServer.utQueryStatsActive = True
         return
 
     @updateUTQueryStats.before_loop
@@ -2364,20 +2410,25 @@ class PUG(commands.Cog):
 
     @tasks.loop(seconds=10.0)
     async def sendMatchReport(self):
-        if self.pugInfo.matchReportPending and self.pugInfo.pugLocked != True:
-            matchref = 'last'
-            if len(self.pugInfo.gameServer.lastMatchCode):
-                matchref = self.pugInfo.gameServer.lastMatchCode
-            elif len(self.pugInfo.gameServer.matchCode):
-                matchref = self.pugInfo.gameServer.matchCode
-            log.debug('Sending match report to {0}; last mode={1}; last matchref={2};'.format(self.activeChannel,self.pugInfo.lastPlayedMode,matchref))
-            self.pugInfo.matchReportPending = False
-            await self.rkrp(self.activeChannel, mode=self.pugInfo.lastPlayedMode, matchref=matchref)
+        for channel_id, pug in self.pugInstances.items():
+            if pug.matchReportPending and pug.pugLocked != True:
+                self.activeChannel = discord.Client.get_channel(self.bot, channel_id)
+                if self.activeChannel is None:
+                    continue
+                matchref = 'last'
+                if len(pug.gameServer.lastMatchCode):
+                    matchref = pug.gameServer.lastMatchCode
+                elif len(pug.gameServer.matchCode):
+                    matchref = pug.gameServer.matchCode
+                log.debug('Sending match report to {0}; last mode={1}; last matchref={2};'.format(self.activeChannel, pug.lastPlayedMode, matchref))
+                pug.matchReportPending = False
+                await self.rkrp(self.activeChannel, mode=pug.lastPlayedMode, matchref=matchref)
         return
     
     @sendMatchReport.after_loop
     async def on_sendMatchReport_cancel(self):
-        self.pugInfo.matchReportPending = False
+        for pug in self.pugInstances.values():
+            pug.matchReportPending = False
 
     @tasks.loop(minutes=5)
     async def updateGuildEmojis(self):
@@ -2387,9 +2438,11 @@ class PUG(commands.Cog):
     @tasks.loop(hours=1)
     async def updateServerRotation(self):
         # Only auto-rotate between 6:00 and 9:59 am on a Monday
-        if datetime.now().weekday() == 0 and datetime.now().hour >= 6 and datetime.now().hour <= 9 and not self.pugInfo.pugLocked:
-            log.debug('updateServerRotation loop - calling checkServerRotation()')
-            self.pugInfo.gameServer.checkServerRotation()
+        if datetime.now().weekday() == 0 and datetime.now().hour >= 6 and datetime.now().hour <= 9:
+            for pug in self.pugInstances.values():
+                if not pug.pugLocked:
+                    log.debug('updateServerRotation loop - calling checkServerRotation() for channel pug')
+                    pug.gameServer.checkServerRotation()
         return
 #########################################################################################
 # Utilities.
@@ -2397,49 +2450,99 @@ class PUG(commands.Cog):
     def loadPugConfig(self, configFile):
         with open(configFile) as f:
             info = json.load(f)
-            if info:
-                if 'pug' in info and 'activechannelid' in info['pug']:
+            if info and 'pug' in info:
+                # Load reporter settings first
+                if 'reporterchannelid' in info['pug']:
+                    channelID = info['pug']['reporterchannelid']
+                    channel = discord.Client.get_channel(self.bot, channelID)
+                    if channel:
+                        self.utReporterChannel = channel
+                if 'reporterconsolewatermark' in info['pug']:
+                    self._defaultPugInfo.gameServer.utQueryConsoleWatermark = info['pug']['reporterconsolewatermark']
+
+                # Load per-channel PUG state
+                if 'channels' in info['pug'] and isinstance(info['pug']['channels'], dict):
+                    for channel_id_str, channel_info in info['pug']['channels'].items():
+                        try:
+                            channel_id = int(channel_id_str)
+                        except Exception:
+                            continue
+                        channel = discord.Client.get_channel(self.bot, channel_id)
+                        if not channel:
+                            continue
+                        self.set_active_channel(channel)
+                        pug = self.get_pug_for_channel(channel)
+                        if 'current' in channel_info and isinstance(channel_info['current'], dict):
+                            current = channel_info['current']
+                            if 'mode' in current:
+                                pug.setMode(current['mode'])
+                            if 'playerlimit' in current:
+                                pug.setMaxPlayers(current['playerlimit'])
+                            if 'maxmaps' in current:
+                                pug.maps.setMaxMaps(current['maxmaps'])
+                            if 'timesaved' in current:
+                                try:
+                                    time_saved = datetime.fromisoformat(current['timesaved'])
+                                except Exception:
+                                    time_saved = None
+                                if time_saved and (datetime.now() - time_saved).total_seconds() < 60 and 'signed' in current:
+                                    players = current['signed']
+                                    if players:
+                                        for player_id in players:
+                                            player = channel.guild.get_member(player_id)
+                                            if player:
+                                                pug.addPlayer(player)
+                        if 'lastpug' in channel_info and isinstance(channel_info['lastpug'], dict):
+                            lastpug = channel_info['lastpug']
+                            if 'pugstr' in lastpug:
+                                pug.lastPugStr = lastpug['pugstr']
+                            if 'timestarted' in lastpug:
+                                try:
+                                    pug.lastPugTimeStarted = datetime.fromisoformat(lastpug['timestarted'])
+                                except Exception:
+                                    pug.lastPugTimeStarted = None
+                    if 'activechannelid' in info['pug']:
+                        channel = discord.Client.get_channel(self.bot, info['pug']['activechannelid'])
+                        if channel and channel.id in self.pugInstances:
+                            self.activeChannel = channel
+                elif 'activechannelid' in info['pug']:
                     channelID = info['pug']['activechannelid']
                     channel = discord.Client.get_channel(self.bot, channelID)
                     log.info('Loaded active channel id: {0} => channel: {1}'.format(channelID, channel))
                     if channel:
-                        self.activeChannel = channel
-                        # Only load current info if the channel is valid, otherwise the rest is useless.
+                        self.set_active_channel(channel)
+                        pug = self.get_pug_for_channel(channel)
                         if 'current' in info['pug']:
-                            if 'mode' in info['pug']['current']:
-                                self.pugInfo.setMode(info['pug']['current']['mode'])
-                            if 'playerlimit' in info['pug']['current']:
-                                self.pugInfo.setMaxPlayers(info['pug']['current']['playerlimit'])
-                            if 'maxmaps' in info['pug']['current']:
-                                self.pugInfo.maps.setMaxMaps(info['pug']['current']['maxmaps'])
-                            if 'timesaved' in info['pug']['current']:
-                                time_saved = datetime.fromisoformat(info['pug']['current']['timesaved'])
-                                # Only load signed players if timesaved is present and it is within 60 seconds of when the file was last saved.
-                                # This is to avoid people thinking they were unsigned and causing a no-show.
-                                if (datetime.now() - time_saved).total_seconds() < 60 and 'signed' in info['pug']['current']:
-                                    players = info['pug']['current']['signed']
+                            current = info['pug']['current']
+                            if 'mode' in current:
+                                pug.setMode(current['mode'])
+                            if 'playerlimit' in current:
+                                pug.setMaxPlayers(current['playerlimit'])
+                            if 'maxmaps' in current:
+                                pug.maps.setMaxMaps(current['maxmaps'])
+                            if 'timesaved' in current:
+                                try:
+                                    time_saved = datetime.fromisoformat(current['timesaved'])
+                                except Exception:
+                                    time_saved = None
+                                if time_saved and (datetime.now() - time_saved).total_seconds() < 60 and 'signed' in current:
+                                    players = current['signed']
                                     if players:
                                         for player_id in players:
-                                            player = self.activeChannel.guild.get_member(player_id)
+                                            player = channel.guild.get_member(player_id)
                                             if player:
-                                                self.pugInfo.addPlayer(player)
+                                                pug.addPlayer(player)
                         if 'lastpug' in info['pug']:
-                            if 'pugstr' in info['pug']['lastpug']:
-                                self.pugInfo.lastPugStr = info['pug']['lastpug']['pugstr']
-                                if 'timestarted' in info['pug']['lastpug']:
-                                    try:
-                                        self.pugInfo.lastPugTimeStarted = datetime.fromisoformat(info['pug']['lastpug']['timestarted'])
-                                    except:
-                                        self.pugInfo.lastPugTimeStarted = None
+                            lastpug = info['pug']['lastpug']
+                            if 'pugstr' in lastpug:
+                                pug.lastPugStr = lastpug['pugstr']
+                            if 'timestarted' in lastpug:
+                                try:
+                                    pug.lastPugTimeStarted = datetime.fromisoformat(lastpug['timestarted'])
+                                except Exception:
+                                    pug.lastPugTimeStarted = None
                     else:
                         log.warning('No active channel id found in config file.')
-                if 'pug' in info and 'reporterchannelid' in info['pug']:
-                    channelID = info['pug']['reporterchannelid']
-                    channel = discord.Client.get_channel(self.bot,channelID)
-                    if channel:
-                        self.utReporterChannel = channel
-                if 'pug' in info and 'reporterconsolewatermark' in info['pug']:
-                    self.pugInfo.gameServer.utQueryConsoleWatermark = info['pug']['reporterconsolewatermark']
             else:
                 log.error('PUG: Config file could not be loaded: {0}'.format(configFile))
             f.close()
@@ -2448,8 +2551,6 @@ class PUG(commands.Cog):
     def savePugConfig(self, configFile):
         with open(configFile) as f:
             info = json.load(f)
-            if 'pug' in info and 'activechannelid' in info['pug']:
-                last_active_channel_id = info['pug']['activechannelid']
             if 'pug' not in info:
                 info['pug'] = {}
             if self.activeChannel:
@@ -2460,31 +2561,31 @@ class PUG(commands.Cog):
                 info['pug']['reporterchannelid'] = self.utReporterChannel.id
             else:
                 info['pug']['reporterchannelid'] = 0
-            if self.pugInfo.gameServer.utQueryConsoleWatermark > 0:
-               info['pug']['reporterconsolewatermark'] = self.pugInfo.gameServer.utQueryConsoleWatermark
+            info['pug']['channels'] = {}
+            for channel_id, pug in self.pugInstances.items():
+                channel = discord.Client.get_channel(self.bot, channel_id)
+                if channel is None:
+                    continue
+                channel_cfg = {}
+                channel_cfg['current'] = {
+                    'timesaved': datetime.now().isoformat(),
+                    'mode': pug.mode,
+                    'playerlimit': pug.maxPlayers,
+                    'maxmaps': pug.maps.maxMaps
+                }
+                if len(pug.players) > 0:
+                    channel_cfg['current']['signed'] = [p.id for p in pug.all if p not in [None]]
+                channel_cfg['lastpug'] = {}
+                if pug.lastPugTimeStarted:
+                    channel_cfg['lastpug']['timestarted'] = pug.lastPugTimeStarted.isoformat()
+                if pug.lastPugStr:
+                    channel_cfg['lastpug']['pugstr'] = pug.lastPugStr
+                info['pug']['channels'][str(channel_id)] = channel_cfg
+            if self.pugInfo and self.pugInfo.gameServer.utQueryConsoleWatermark > 0:
+                info['pug']['reporterconsolewatermark'] = self.pugInfo.gameServer.utQueryConsoleWatermark
             else:
-               info['pug']['reporterconsolewatermark'] = 0
-            # Only save info about the current/last pugs if the channel id is valid and unchanged in this save.
-            if self.activeChannel and self.activeChannel.id == last_active_channel_id:
-                # current pug info:
-                info['pug']['current'] = {}
-                info['pug']['current']['timesaved'] = datetime.now().isoformat()
-                info['pug']['current']['mode'] = self.pugInfo.mode
-                info['pug']['current']['playerlimit'] = self.pugInfo.maxPlayers
-                info['pug']['current']['maxmaps'] = self.pugInfo.maps.maxMaps
-                if len(self.pugInfo.players) > 0:
-                    info['pug']['current']['signed'] = []
-                    for p in self.pugInfo.all:
-                        if (p not in [None]):
-                            info['pug']['current']['signed'].append(p.id)
-
-                # last pug info:
-                info['pug']['lastpug'] = {}
-                if self.pugInfo.lastPugTimeStarted:
-                    info['pug']['lastpug']['timestarted'] = self.pugInfo.lastPugTimeStarted.isoformat()
-                if self.pugInfo.lastPugStr:
-                    info['pug']['lastpug']['pugstr'] = self.pugInfo.lastPugStr
-        with open(configFile,'w') as f:
+                info['pug']['reporterconsolewatermark'] = 0
+        with open(configFile, 'w') as f:
             json.dump(info, f, indent=4)
         return True
    
@@ -2517,7 +2618,11 @@ class PUG(commands.Cog):
             await ctx.send('\n'.join(msg))
 
     def isActiveChannel(self, ctx):
-        return self.activeChannel is not None and self.activeChannel == ctx.message.channel
+        channel = ctx.message.channel
+        if channel.id in self.pugInstances:
+            self.activeChannel = channel
+            return True
+        return False
     
     async def checkOnDemandServer(self, ctx):
         if self.pugInfo.gameServer.gameServerState in ('N/A','N/AN/A') and self.pugInfo.gameServer.gameServerOnDemand is True:
@@ -3126,12 +3231,14 @@ class PUG(commands.Cog):
         if type(player) is int:
             pid = player
             pdn = ''
+            dplayer = self.activeChannel.guild.get_member(pid)
         elif type(player) is str:
             pid = -1
             pdn = player
         else:
             pid = player.id
             pdn = player.display_name
+            dplayer = player
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
@@ -3290,6 +3397,9 @@ class PUG(commands.Cog):
                                 'lastgamedate': datetime.now().isoformat(),
                                 'lastgameref': 'admin-set'
                             })
+                            # Message player with registration details
+                            if dplayer != None and additionalid < 1:
+                                dplayer.send('Welcome. You have been registered for ranked play in {0}.\n\nYour UTA account could not be automatically reconciled, please link your Discord ID with your UTA account, or register a new UTA account at {1} to continue.'.format(mode,DEFAULT_ACCOUNT_URL))
                         if pid > -1:
                             msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,pdn,pid,mode)
                         else:
@@ -3351,16 +3461,13 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     async def pugenable(self, ctx):
-        """Enables PUG commands in the channel. Note only one channel can be active at a time. Admin only"""
-        if self.activeChannel:
-            if self.activeChannel == ctx.message.channel:
-                await ctx.send('PUG commands are already enabled in {}'.format(ctx.message.channel.mention))
-                return
-            await self.activeChannel.send('PUG commands have been disabled in {0}. They are now enabled in {1}'.format(self.activeChannel.mention, ctx.message.channel.mention))
-            await ctx.send('PUG commands have been disabled in {}'.format(self.activeChannel.mention))
-        self.activeChannel = ctx.message.channel
+        """Enables PUG commands in this channel. Admin only."""
+        if ctx.message.channel.id in self.pugInstances:
+            await ctx.send('PUG commands are already enabled in {}'.format(ctx.message.channel.mention))
+            return
+        self.set_active_channel(ctx.message.channel)
         self.savePugConfig(self.configFile)
-        await ctx.send('PUG commands are enabled in {}'.format(self.activeChannel.mention))
+        await ctx.send('PUG commands are enabled in {}'.format(ctx.message.channel.mention))
 
     @commands.command()
     @commands.guild_only()
@@ -3412,6 +3519,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['setserver','setactiveserver'])
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def adminsetserver(self, ctx, idx: int):
         """Sets the active server to the index chosen from the pool of available servers. Admin only"""
@@ -3433,6 +3541,7 @@ class PUG(commands.Cog):
     
     @commands.hybrid_command(aliases=['startserver'])
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def adminstartserver(self, ctx, idx: int):
         """Starts up an on-demand server. Admin only"""
@@ -3447,6 +3556,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['stopserver'])
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def adminstopserver(self, ctx, idx: int):
         """Queues up an on-demand server to shut down. Admin only"""
@@ -3459,6 +3569,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['refreshservers'])
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def adminrefreshservers(self, ctx):
         """Refreshes the server list within the available pool. Admin only"""
@@ -3472,6 +3583,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def adminremoveserver(self, ctx, svref: str):
         # Removed add server in favour of pulling from API; left remove server in here in case one needs temporarily removing until restart
         """Removes a server from available pool. Admin only"""
@@ -3482,6 +3594,7 @@ class PUG(commands.Cog):
     
     @commands.command(aliases=['setrotation','rotate'])
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def adminsetserverrotation(self, ctx, *rotation: str): # hybrid_command doesn't support an undefined number of params - may need adjusting
         """Rotates servers weekly based on the provided servers. Admin only"""
@@ -3499,6 +3612,7 @@ class PUG(commands.Cog):
             await ctx.send('Server rotation set to: {0}'.format(', '.join(map(str,self.pugInfo.gameServer.gameServerRotation))))
 
     @commands.hybrid_command(aliases=['checkrotation','checkrotate'])
+    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def checkserverrotation(self, ctx):
         """Checks current server and rotates accordingly."""
@@ -3513,6 +3627,7 @@ class PUG(commands.Cog):
             await ctx.send('Server rotation is not configured.')
 
     @commands.hybrid_command(aliases=['getrotation'])
+    @commands.check(isActiveChannel_Check)
     async def getserverrotation(self, ctx):
         """Shows server rotation."""
         if len(self.pugInfo.gameServer.gameServerRotation) > 0:
@@ -3535,6 +3650,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def adminaddmap(self, ctx, map: str):
         """Adds a map to the available map list. Admin only"""
         if self.pugInfo.maps.addMapToAvailableList(map):
@@ -3545,6 +3661,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def admininsertmap(self, ctx, index: int, map: str):
         """Insert a map into the available map list at the given index. Admin only"""
         if index > 0 and index <= self.pugInfo.maps.maxMapsLimit + 1:
@@ -3559,6 +3676,7 @@ class PUG(commands.Cog):
 
     @commands.command()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def adminreplacemap(self, ctx, *mapref: str): # hybrid_command doesn't support an undefined number of params - may need adjusting
         """Replaces a map within the available map list. Admin only"""
         if len(mapref) == 2 and mapref[0].isdigit() and (int(mapref[0]) > 0 and int(mapref[0]) <= len(self.pugInfo.maps.availableMapsList)):
@@ -3575,6 +3693,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def adminremovemap(self, ctx, map: str):
         """Removes a map to from available map list. Admin only"""
         if map.isdigit():
@@ -3590,6 +3709,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def passwords(self, ctx):
         """Provides current game passwords to the requesting administrator. Admin only"""
         if self.isPugInProgress:
@@ -3603,6 +3723,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rksave(self, ctx):
         """Calls for a configuration save"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
@@ -3616,6 +3737,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['setrk','rankset','addrk','rankadd','rkadd'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkset(self, ctx, player: discord.Member, mode: str = 'rASPlus', rating: int = 500, externalpid: int = 0):
         """Adds or sets a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus) Weight(e.g., 500)"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
@@ -3629,6 +3751,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rmrk','rkrm','rkdelete','rankdel','rankremove'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkdel(self, ctx, player: discord.Member, mode: str = 'rASPlus'):
         """Removes a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus)"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
@@ -3642,6 +3765,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rksync(self, ctx, mode: str = 'rASPlus', item: str = '', direction: str = 'outbound', redcap: discord.Member = None, bluecap: discord.Member = None):
         if (self.pugInfo.pugLocked):
             await ctx.send('Ranked data cannot be synchronised while a game is in progress. Please try again later.')
@@ -3749,6 +3873,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkrecalc(self, ctx, player: discord.Member, mode: str = 'rASPlus', seed: int = 0, pid: int = 0):
         """Recalculates RP of a player: PlayerNick GameMode(e.g. rASPlus) <optional seed value>"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
@@ -3770,6 +3895,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rkgamesim','rksim'])
     @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
     async def rkgamesimulation(self, ctx, player1=None, player2=None, player3=None, player4=None, player5=None, player6=None, player7=None, player8=None, player9=None, player10=None, player11=None, player12=None, player13=None, player14=None):
         """Simulates player picks for the active ranked mode. Use player:(+-)100 modifiers to test changes."""
         if not self.pugInfo.ranked:
@@ -3832,6 +3958,7 @@ class PUG(commands.Cog):
     @commands.command(aliases=['clearmaplist'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkclearmaps(self, ctx, mode: str = ''):
         """Clears all available maps from a ranked mode maplist. Parameters: GameMode"""
         if (mode in [None,'']):
@@ -3868,6 +3995,7 @@ class PUG(commands.Cog):
     @commands.command(aliases=['rkaddmap'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkaddmaps(self, ctx, mode: str='', *maps: str):
         """Adds maps to a ranked mode maplist. Parameters: GameMode Map:Order:Weight"""
         if (mode in [None,'']):
@@ -3936,6 +4064,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rklimit','rksetlimit', 'rksetmaps','rksetmaplimit'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkmaplimit(self, ctx, mode: str='', limit: int = 5, shuffle: str = ''):
         """Sets the pick limit and shuffle mode for a ranked mode maplist."""
         if (mode in [None,''] or limit in [None, '']):
@@ -3984,6 +4113,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmapsim','rksimmap'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkmapsimulation(self, ctx, count=5):
         """Simulates a given number of auto-picks for the active ranked mode, using rules for that mode"""
         if not self.pugInfo.ranked:
@@ -4000,6 +4130,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkresetmaps','rkresetmappri','rkmapresetpri','rkmapresetdesirability'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkresetmapdesirability(self, ctx):
         """Resets map desirability to defaults within an active ranked mode."""
         if not self.pugInfo.ranked:
@@ -4018,6 +4149,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmapboost','rkboost'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkincreasemapdesirability(self, ctx, map: str='', factor: int = 2):
         """Inceases map desirability within an active ranked mode. Parameters: Map Factor, e.g. AS-Ballistic 2"""
         if not self.pugInfo.ranked:
@@ -4039,6 +4171,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmapnerf','rknerf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkdecreasemapdesirability(self, ctx, map: str='', divisor: int = 2):
         """Decreases map desirability within an active ranked mode. Parameters: Map Divisor, e.g. AS-Bridge 2"""
         if not self.pugInfo.ranked:
@@ -4060,6 +4193,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkconf(self, ctx, mode: str = '', capmode: int = 0, role: discord.Role=None, window: int = 0):
         """Configures ranked mode core settings."""
         if (mode in [None,'']):
@@ -4103,6 +4237,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkscoreconfig','rkscoreconf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkscoring(self, ctx, mode: str = '', scoremode: str = 'permap', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
         """Configures ranked mode scoring settings."""
         if (mode in [None,'']):
@@ -4157,6 +4292,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rklist'])
     @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
     async def rkrecent(self, ctx, mode: str = '', last: int = 5, matchref: str='', completed: str = ''):
         """Returns recent ranked matches"""
         if (mode in [None,'']):
@@ -4232,6 +4368,7 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rkreport'])
     @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
     async def rkrp(self, ctx, mode: str = '', matchref: str = '', player: discord.Member = None):
         """Returns match and player RP reports"""
         pid = re.search(r'<@(\d*)>', mode)
@@ -4287,6 +4424,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkvoid'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def rkvoidmatch(self, ctx, mode: str = '', matchref: str = ''):
         if (self.pugInfo.pugLocked):
             await ctx.send('Matches cannot be voided while a game is in progress. Please try again later.')
@@ -4334,16 +4472,18 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
     async def disable(self, ctx):
-        """Disables PUG commands in the channel. Note only one channel can be active at a time. Admin only"""
-        if self.activeChannel:
-            await self.activeChannel.send('PUG commands now disabled.')
-            if ctx.message.channel != self.activeChannel:
-                await ctx.send('PUG commands are disabled in ' + self.activeChannel.mention)
-            self.activeChannel = None
+        """Disables PUG commands in this channel. Admin only"""
+        channel = ctx.message.channel
+        if channel.id in self.pugInstances:
+            await channel.send('PUG commands now disabled.')
+            self.pugInstances.pop(channel.id, None)
+            if self.activeChannel == channel:
+                self.activeChannel = None
             self.savePugConfig(self.configFile)
             return
-        await ctx.send('PUG commands were not active in any channels.')
+        await ctx.send('PUG commands were not active in this channel.')
     
     @commands.hybrid_command(aliases = ['pug'])
     @commands.guild_only()
@@ -4893,5 +5033,6 @@ class PUG(commands.Cog):
                     self.pugInfo.gameServer.utQueryReporterActive = True
                     await ctx.send('Force-started UT Reporter threads in this channel')
         return
+
 async def setup(bot):
     await bot.add_cog(PUG(bot, DEFAULT_CONFIG_FILE))
