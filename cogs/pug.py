@@ -43,7 +43,7 @@ DEFAULT_GAME_SERVER_NAME = 'Unknown Server'
 DEFAULT_ACCOUNT_URL = 'https://utassault.net/discord/link'
 DEFAULT_POST_SERVER = 'https://utassault.net'
 DEFAULT_POST_TOKEN = 'NoToken'
-DEFAULT_THUMBNAIL_SERVER = '{0}/pugstats/images/maps/'.format(DEFAULT_POST_SERVER)
+DEFAULT_THUMBNAIL_SERVER = f'{DEFAULT_POST_SERVER}/pugstats/images/maps/'
 DEFAULT_CONFIG_FILE = 'servers/config.json'
 DEFAULT_RATING_FILE = 'players/ratings.json'
 
@@ -60,6 +60,7 @@ MODE_CONFIG = {
     'ZPiAS': Mode('InstaGib Assault', False, 2, 20, 0, 'LeagueAS140.LeagueAssault', 'ZeroPingPlus103.ColorAccuGib', 0)
 }
 MODE_DEFAULT = 'ASplus'
+MODE_RANKED_DEFAULT = 'rASplus'
 
 RED_PASSWORD_PREFIX = 'RP'
 BLUE_PASSWORD_PREFIX = 'BP'
@@ -131,7 +132,7 @@ UP = '<:smallgreenuparrow:1359842129433596067>'
 DN = '\U0001F53B'
 
 DISCORD_MD_CHARS = '*~_`'
-DISCORD_MD_ESCAPE_RE = re.compile('[{}]'.format(DISCORD_MD_CHARS))
+DISCORD_MD_ESCAPE_RE = re.compile(f'[{DISCORD_MD_CHARS}]')
 DISCORD_MD_ESCAPE_DICT = {c: '\\' + c for c in DISCORD_MD_CHARS}
 
 #########################################################################################
@@ -168,14 +169,14 @@ def getDuration(then, now, interval: str = 'default'):
         s = seconds(m[1])
         msg = []
         if y[0] > 0:
-            msg.append('{} years'.format(int(y[0])))
+            msg.append(f'{int(y[0])} years')
         if d[0] > 0:
-            msg.append('{} days'.format(int(d[0])))
+            msg.append(f'{int(d[0])} days')
         if h[0] > 0:
-            msg.append('{} hours'.format(int(h[0])))
+            msg.append(f'{int(h[0])} hours')
         if m[0] > 0:
-            msg.append('{} minutes'.format(int(m[0])))
-        msg.append('{} seconds'.format(int(s[0])))
+            msg.append(f'{int(m[0])} minutes')
+        msg.append(f'{int(s[0])} seconds')
         return ', '.join(msg)
     return {'years': int(years()[0]),'days': int(days()[0]),'hours': int(hours()[0]),'minutes': int(minutes()[0]),'seconds': int(seconds()),'default': totalDuration()}[interval]
 
@@ -220,7 +221,7 @@ class Players:
 
     @property
     def playersBrief(self):
-        return '[{}/{}]'.format(self.numPlayers, self.maxPlayers)
+        return f'[{self.numPlayers}/{self.maxPlayers}]'
 
     @property
     def playersFull(self):
@@ -240,7 +241,7 @@ class Players:
     def addPlayer(self, player, flags: str = ''):
         if flags.lower()[:2] in ['qu','ne']:
             if player not in self.queuedPlayers and not self.playerQueueFull:
-                log.debug('addPlayer() - Adding player {0} to pug queue.'.format(player.display_name))
+                log.debug(f'addPlayer() - Adding player {player.display_name} to pug queue.')
                 self.queuedPlayers.append(player)
                 return True
         else:
@@ -253,10 +254,10 @@ class Players:
 
     def addRankedPlayer(self, player, flags: str = ''):
         # Determine eligibility and ratings data present, perform any other checks here
-        log.debug('addRankedPlayer({0}) started'.format(player.display_name))
+        log.debug(f'addRankedPlayer({player.display_name}) started')
         if self.checkRankedPlayersEligibility([player]):
             if self.addPlayer(player, flags):
-                log.debug('addRankedPlayer({0}) succeeded.'.format(player.display_name))
+                log.debug(f'addRankedPlayer({player.display_name}) succeeded.')
                 return True
         return False
 
@@ -302,7 +303,7 @@ class Players:
                     if p.id in self.ratingsData['registrations'] or str(p.id) in self.ratingsData['registrations']:
                         checked += 1
             else:
-                log.debug('checkRankedPlayersEligibility({0}) - registrations list not present in ratingsData.'.format(players))
+                log.debug(f'checkRankedPlayersEligibility({players}) - registrations list not present in ratingsData.')
             if checked != len(players):
                 return False
         return True
@@ -381,9 +382,9 @@ class PugMaps:
             unlistedMaps = []
             for idx, x in indexedMaps:
                 if (x in self.filteredMapsList):
-                    listedMaps.append('**{0})** __{1}__'.format(idx, x))
+                    listedMaps.append(f'**{idx})** __{x}__')
                 else:
-                    listedMaps.append('**{0})** ~~{1}~~'.format(idx, x))
+                    listedMaps.append(f'**{idx})** ~~{x}~~')
             for x in self.filteredMapsList:
                 if (x not in maps):
                     unlistedMaps.append(x)
@@ -395,9 +396,9 @@ class PugMaps:
         else:
             if (self.rankedMode and len(maps) != self.maxMaps):
                 uniqMaps = list(set(indexedMaps))
-                return PLASEP.join('{1}'.format(*x) for x in uniqMaps)
+                return PLASEP.join(f'{x[1]}' for x in uniqMaps)
             else:
-                return PLASEP.join('**{0})** {1}'.format(*x) for x in indexedMaps)
+                return PLASEP.join(f'**{x[0]})** {x[1]}' for x in indexedMaps)
 
     @property
     def format_filtered_maplist(self):
@@ -476,25 +477,26 @@ class PugMaps:
                 pick = None
                 dCheck = 0
                 dCount = 0
-                for m in self.mapListWeighting:
-                    # Run through ordered picks only, to test desirability
-                    if (int(m['order']) == (i+1)) and (m['map'] not in self.maps and m['map'] not in simulatedMaps):
-                        dCheck += 1
-                        if 'desirability' in m:
-                            if m['desirability'] < m['weight']*self.desirabilityMultiplier:
-                                dCount +=1
-                for m in self.mapListWeighting:
-                    if (int(m['order']) == (i+1) or int(m['order']) == 0) and (m['map'] not in self.maps and m['map'] not in simulatedMaps):
-                        if 'weight' in m and m['weight'] > 0:
-                            if 'desirability' not in m or dCount == dCheck:
-                                m['desirability'] = m['weight']*self.desirabilityMultiplier
-                            m['desirability'] = max(1, min(int(m['desirability']), 500))
-                            for x in range(m['desirability']):
+                if self.mapListWeighting is not None:
+                    for m in self.mapListWeighting:
+                        # Run through ordered picks only, to test desirability
+                        if (int(m['order']) == (i+1)) and (m['map'] not in self.maps and m['map'] not in simulatedMaps):
+                            dCheck += 1
+                            if 'desirability' in m:
+                                if m['desirability'] < m['weight']*self.desirabilityMultiplier:
+                                    dCount +=1
+                    for m in self.mapListWeighting:
+                        if (int(m['order']) == (i+1) or int(m['order']) == 0) and (m['map'] not in self.maps and m['map'] not in simulatedMaps):
+                            if 'weight' in m and m['weight'] > 0:
+                                if 'desirability' not in m or dCount == dCheck:
+                                    m['desirability'] = m['weight']*self.desirabilityMultiplier
+                                m['desirability'] = max(1, min(int(m['desirability']), 500))
+                                for x in range(m['desirability']):
+                                    opts.append(m['map'])
+                                mapRatios[m['map']] = m['desirability']
+                            else:
                                 opts.append(m['map'])
-                            mapRatios[m['map']] = m['desirability']
-                        else:
-                            opts.append(m['map'])
-                            mapRatios[m['map']] = 1
+                                mapRatios[m['map']] = 1
                 if len(opts):
                     pick = random.choice(opts)
                 else:
@@ -502,7 +504,7 @@ class PugMaps:
                     while (pick == None or pick in self.maps or pick in simulatedMaps):
                         pick = random.choice(opts) # fallback to whole list if position has failed to pick
                     mapRatios[pick] = 1
-                    log.debug('autoPickRankedMaps() - Reverted to full maplist for pick {0} of {1} [order preference {2}] - {3}'.format(str(len(simulatedMaps)+1),str(self.maxMaps),str((i+1)),pick))
+                    log.debug(f'autoPickRankedMaps() - Reverted to full maplist for pick {str(len(simulatedMaps)+1)} of {str(self.maxMaps)} [order preference {str((i+1))}] - {pick}')
                 if pick not in [None,'']:
                     if self.startMapFromPick > 0 and self.startMapFromPick == (i+1):
                         self.startMap = pick
@@ -510,20 +512,21 @@ class PugMaps:
                     for value in mapRatios.values():
                         mapTotals += value
                     mapDiv = gcd(mapRatios[pick],mapTotals)
-                    mapRatio = '{0}:{1}'.format(str(mapRatios[pick]//mapDiv),str(mapTotals//mapDiv))
+                    mapRatio = f'{str(mapRatios[pick]//mapDiv)}:{str(mapTotals//mapDiv)}'
                     if simulate:
-                        log.debug('autoPickRankedMaps() - Simulating map pick {0} of {1} [order preference {2}] - {3}; slot chances - {4}'.format(str(len(simulatedMaps)+1),str(self.maxMaps),str((i+1)),pick,mapRatio))
+                        log.debug(f'autoPickRankedMaps() - Simulating map pick {str(len(simulatedMaps)+1)} of {str(self.maxMaps)} [order preference {str((i+1))}] - {pick}; slot chances - {mapRatio}')
                         simulatedMaps.append(pick)
                         simulatedMapsStr.append(pick)
-                        # simulatedMapsStr.append('{0} *({1} chance)*'.format(pick,mapRatio))
+                        # simulatedMapsStr.append(f'{pick} *({mapRatio} chance)*')
                     else:
-                        log.debug('autoPickRankedMaps() - Adding map {0} of {1} [order preference {2}] - {3}; slot chances - {4}'.format(str(len(self.maps)+1),str(self.maxMaps),str((i+1)),pick,mapRatio))
+                        log.debug(f'autoPickRankedMaps() - Adding map {str(len(self.maps)+1)} of {str(self.maxMaps)} [order preference {str((i+1))}] - {pick}; slot chances - {mapRatio}')
                         self.maps.append(pick)
-                    for m in self.mapListWeighting:
-                        if m['map'] == pick:
-                            if 'desirability' not in m:
-                                m['desirability'] = m['weight']*self.desirabilityMultiplier
-                            m['desirability'] = max(1, int(round(m['desirability']/self.desirabilityReduction,0)))
+                    if self.mapListWeighting is not None:
+                        for m in self.mapListWeighting:
+                            if m['map'] == pick:
+                                if 'desirability' not in m:
+                                    m['desirability'] = m['weight']*self.desirabilityMultiplier
+                                m['desirability'] = max(1, int(round(m['desirability']/self.desirabilityReduction,0)))
             if self.autoPickShuffled:
                 if simulate:
                     random.shuffle(simulatedMapsStr)
@@ -537,34 +540,36 @@ class PugMaps:
     def adjustRankedMapDesirability(self, action: str = 'revert', map: str = '', adjustment: int = 1):
         newDesirability = 0
         if action.lower() == 'resetall':
-            for m in self.mapListWeighting:
-                log.debug('adjustRankedMapDesirability() - resetting {0} to default desirability'.format(m['map']))
-                m['desirability'] = m['weight']*self.desirabilityMultiplier
+            if self.mapListWeighting is not None:
+                for m in self.mapListWeighting:
+                    log.debug(f'adjustRankedMapDesirability() - resetting {m["map"]} to default desirability')
+                    m['desirability'] = m['weight']*self.desirabilityMultiplier
             return True
         elif action.lower() == 'mapincrease' or action.lower() == 'mapdecrease':
-            if len(map):
+            if len(map) and self.mapListWeighting is not None:
                 for m in self.mapListWeighting:
                     if str(m['map']).lower() == map.lower():
                         if action.lower() == 'mapdecrease':
                             newDesirability = min(m['desirability']/max(1,adjustment),m['weight']*self.desirabilityMultiplier)
                         else:
                             newDesirability = min(m['desirability']*max(1,adjustment),m['weight']*self.desirabilityMultiplier)
-                        log.debug('adjustRankedMapDesirability() - adjusting {0} desirability; from: {1}, to: {2}'.format(m['map'],m['desirability'],newDesirability))
+                        log.debug(f'adjustRankedMapDesirability() - adjusting {m["map"]} desirability; from: {m["desirability"]}, to: {newDesirability}')
                         m['desirability'] = newDesirability
-            if newDesirability > 0:
+            if newDesirability > 0 and self.mapListWeighting is not None:
                 return True
             return False
         else:
-            log.debug('adjustRankedMapDesirability() called for maplist length - {0}'.format(str(len(self.maps))))
+            log.debug(f'adjustRankedMapDesirability() called for maplist length - {str(len(self.maps))}')
             for pick in self.maps:
-                for m in self.mapListWeighting:
-                    if m['map'] == pick:
-                        if 'desirability' not in m:
-                            log.debug('adjustRankedMapDesirability() - resetting {0} to default desirability'.format(pick))
-                            m['desirability'] = m['weight']*self.desirabilityMultiplier
-                        else:
-                            log.debug('adjustRankedMapDesirability() - reverting {0} desirability to {1}'.format(pick,str(int(round(m['desirability']*self.desirabilityReduction,0)))))
-                            m['desirability'] = max(1, min(int(round(m['desirability']*self.desirabilityReduction,0)), m['weight']*self.desirabilityMultiplier))
+                if self.mapListWeighting is not None:
+                    for m in self.mapListWeighting:
+                        if m['map'] == pick:
+                            if 'desirability' not in m:
+                                log.debug(f'adjustRankedMapDesirability() - resetting {pick} to default desirability')
+                                m['desirability'] = m['weight']*self.desirabilityMultiplier
+                            else:
+                                log.debug(f'adjustRankedMapDesirability() - reverting {pick} desirability to {str(int(round(m["desirability"]*self.desirabilityReduction,0)))}')
+                                m['desirability'] = max(1, min(int(round(m['desirability']*self.desirabilityReduction,0)), m['weight']*self.desirabilityMultiplier))
         return True
     
     def setMaxMaps(self, numMaps: int):
@@ -799,7 +804,7 @@ class GameServer:
 
         self.lastUpdateTime = datetime.now()
 
-        self.loadConfig(configFile)
+        self.loadServerConfig(configFile)
         if self.allServers == DEFAULT_SERVER_LIST:
             self.validateServers()
         parent.parent.cachedServers = self.allServers
@@ -817,7 +822,7 @@ class GameServer:
         self.utQueryEmbedCache = {}
 
     # Load configuration defaults (some of this will later be superceded by live API data)
-    def loadConfig(self, configFile):
+    def loadServerConfig(self, configFile):
         with open(configFile) as f:
             info = json.load(f)
             if info:
@@ -832,7 +837,7 @@ class GameServer:
                 if 'thumbnailserver' in info:
                     self.thumbnailServer = info['thumbnailserver']
                 if 'maplist' in info and len(info['maplist']):
-                    log.info('Loaded {0} maps from config.json'.format(len(info['maplist'])))
+                    log.info(f'Loaded {len(info["maplist"])} maps from config.json')
                     self.configMaps = info['maplist']
                 else:
                     log.warning('Maplist not found in config file.')
@@ -856,7 +861,7 @@ class GameServer:
                         if svindex >= 0 and svindex < len(self.allServers):
                             self.gameServerRotation.append(int(x))
             else:
-                log.error('GameServer: Config file could not be loaded: {0}'.format(configFile))
+                log.error(f'GameServer: Config file could not be loaded: {configFile}')
             f.close()
         return True
 
@@ -904,7 +909,7 @@ class GameServer:
             self.utQueryData['game_port'] = self.gameServerPort
             self.utQueryData['query_port'] = (self.gameServerPort)+1
         try:
-            self.udpSock.sendto(str.encode('\\{0}\\'.format(queryType)),(self.utQueryData['ip'], self.utQueryData['query_port']))
+            self.udpSock.sendto(str.encode(f'\\{queryType}\\'),(self.utQueryData['ip'], self.utQueryData['query_port']))
             udpData = []
             while True:
                 if queryType == 'consolelog': # Larger buffer required for consolelog
@@ -914,8 +919,8 @@ class GameServer:
                 try:
                     udpData.extend(udpRcv.decode('utf-8','ignore').split('\\')[1:-2]) 
                 except UnicodeDecodeError as e:
-                    log.error('UDP decode error: {0}'.format(e.reason))
-                    log.debug('Attempted sending UDP query {0} to {1}:{2}.'.format(queryType, self.utQueryData['ip'], self.utQueryData['query_port']))
+                    log.error(f'UDP decode error: {e.reason}')
+                    log.debug(f'Attempted sending UDP query {queryType} to {self.utQueryData["ip"]}:{self.utQueryData["query_port"]}.')
                     return
                 if udpRcv.split(b'\\')[-2] == b'final':
                     break
@@ -926,7 +931,7 @@ class GameServer:
             self.utQueryData['lastquery'] = int(time.time())
             self.utQueryData['attempts'] = 0
         except socket.timeout:
-            log.error('UDP socket timeout when connecting to {0}:{1} to perform a query: {2}'.format(self.utQueryData['ip'], self.utQueryData['query_port'],queryType))
+            log.error(f'UDP socket timeout when connecting to {self.utQueryData["ip"]}:{self.utQueryData["query_port"]} to perform a query: {queryType}')
             self.utQueryData['status'] = 'Timeout connecting to server.'
             self.utQueryData['code'] = 408
             self.utQueryData['lastquery'] = 0
@@ -946,7 +951,7 @@ class GameServer:
     def format_post_header_auth(self):
         fmt = {
                 'Content-Type': 'application/json; charset=UTF-8',
-                'PugAuth': '{}'.format(self.authtoken),
+                'PugAuth': f'{self.authtoken}',
                 'Accept':'*/*',
                 'Accept-Encoding':'gzip, deflate, br'
         }
@@ -978,7 +983,7 @@ class GameServer:
     
     def format_post_header_control(self, state: str = 'start'):
         fmt = self.format_post_header_auth
-        fmt.update({'Mode': 'remote{0}'.format(state)})
+        fmt.update({'Mode': f'remote{state}'})
         return fmt
 
     def format_post_body_serverref(self, serverref: str = ''):
@@ -1024,7 +1029,7 @@ class GameServer:
         serverName = self.allServers[self.current_serverrefs().index(self.gameServerRef)][1]
         if self.gameServerIP not in [None, '', '0.0.0.0']:
             serverName = self.gameServerName
-        return '{0}'.format(serverName)
+        return f'{serverName}'
     
     @property
     def format_showall_servers(self):
@@ -1056,55 +1061,55 @@ class GameServer:
         i = 0
         for s in self.allServers:
             i += 1
-            servername = '{0}'.format(s[1])
+            servername = f'{s[1]}'
             for flag in flags:
                 servername  = re.compile(flag).sub(flags[flag], servername)
-            msg.append('{0}. {1} - {2}'.format(i, servername, s[2]))
+            msg.append(f'{i}. {servername} - {s[2]}')
         return '\n'.join(msg)
 
     @property
     def format_gameServerURL(self):
-        return 'unreal://{0}:{1}'.format(self.gameServerIP, self.gameServerPort)
+        return f'unreal://{self.gameServerIP}:{self.gameServerPort}'
 
     @property
     def format_gameServerURL_red(self):
-        return '{0}{1}{2}'.format(self.format_gameServerURL, '?password=', self.redPassword)
+        return f'{self.format_gameServerURL}?password={self.redPassword}'
 
     @property
     def format_gameServerURL_blue(self):
-        return '{0}{1}{2}'.format(self.format_gameServerURL, '?password=', self.bluePassword)
+        return f'{self.format_gameServerURL}?password={self.bluePassword}'
 
     @property
     def format_gameServerURL_spectator(self):
-        return '{0}{1}{2}'.format(self.format_gameServerURL, '?password=', self.spectatorPassword)
+        return f'{self.format_gameServerURL}?password={self.spectatorPassword}'
 
     @property
     def format_gameServerState(self):
-        return '{0}'.format(self.gameServerState)
+        return f'{self.gameServerState}'
 
     @property
     def format_server_info(self):
-        fmt = '{0} | {1}'.format(self.gameServerName, self.format_gameServerURL)
+        fmt = f'{self.gameServerName} | {self.format_gameServerURL}'
         return fmt
 
     @property
     def format_red_password(self):
-        fmt = 'Red team password: **{}**'.format(self.redPassword)
+        fmt = f'Red team password: **{self.redPassword}**'
         return fmt
 
     @property
     def format_blue_password(self):
-        fmt = 'Blue team password: **{}**'.format(self.bluePassword)
+        fmt = f'Blue team password: **{self.bluePassword}**'
         return fmt
 
     @property
     def format_spectator_password(self):
-        fmt = 'Spectator password: **{}**'.format(self.spectatorPassword)
+        fmt = f'Spectator password: **{self.spectatorPassword}**'
         return fmt
 
     @property
     def format_game_server(self):
-        fmt = 'Pug Server: **{}**'.format(self.format_gameServerURL)
+        fmt = f'Pug Server: **{self.format_gameServerURL}**'
         return fmt
     
     @property
@@ -1164,7 +1169,7 @@ class GameServer:
     def useServer(self, index: int, autostart: bool = False, byref: str = ''):
         """Sets the active server"""
         serverchanged = False
-        log.debug('useServer() called for mode {0}, with index: {1}, autostart: {2}, byref: {3}'.format(str(self.parent.mode), str(index), str(autostart), byref))
+        log.debug(f'useServer() called for mode {str(self.parent.mode)}, with index: {str(index)}, autostart: {str(autostart)}, byref: {byref}')
         if index >= 0 and index < len(self.allServers):
             # check if current server needs to be shut down first
             if self.gameServerOnDemand:
@@ -1214,7 +1219,7 @@ class GameServer:
                 log.debug('API response validated.')
                 return validatedJSON
             except:
-                log.error('Invalid JSON returned from server, URL: {0} HTTP response: {1}; content:{2}'.format(r.url,r.status_code,r.content))
+                log.error(f'Invalid JSON returned from server, URL: {r.url} HTTP response: {r.status_code}; content:{r.content}')
                 return None
         else:
             return None
@@ -1237,7 +1242,7 @@ class GameServer:
                     self.allServers = []
                     for sv in info:
                         if sv['cloudManaged'] is True or sv['serverStatus']['Summary'] not in [None, '', 'N/A', 'N/AN/A']:
-                            self.updateServerReference(sv['serverRef'], sv['serverName'],'unreal://{0}:{1}'.format(sv['serverAddr'], sv['serverPort']), sv['cloudManaged'], sv['serverStatus']['Summary'])
+                            self.updateServerReference(sv['serverRef'], sv['serverName'],f'unreal://{sv["serverAddr"]}:{sv["serverPort"]}', sv['cloudManaged'], sv['serverStatus']['Summary'])
 
                 # Write the server config:
                 self.saveServerConfig(self.configFile)
@@ -1252,9 +1257,9 @@ class GameServer:
             # 5 second delay between requests when restricted.
             return None
         body = self.format_post_body_serverref()
-        log.debug('Posting "Check" to API {0} - {1}'.format(self.postServer,body))
+        log.debug(f'Posting "Check" to API {self.postServer} - {body}')
         r = self.makePostRequest(self.postServer, self.format_post_header_check, body)
-        log.debug('Received data from API - Status: {0}; Content-Length: {1}'.format(r.status_code,r.headers['content-length']))
+        log.debug(f'Received data from API - Status: {r.status_code}; Content-Length: {r.headers["content-length"]}')
         self.lastUpdateTime = datetime.now()
         if(r):
             return r.json()
@@ -1265,8 +1270,8 @@ class GameServer:
         log.debug('Running updateServerStatus')
         info = self.getServerStatus()
         log.debug('updateServerStatus - info fetched')
-        log.debug('- serverStatus: {0}'.format(info['serverStatus']))
-        log.debug('- setupResult: {0}'.format(info['setupResult']))
+        log.debug(f'- serverStatus: {info["serverStatus"]}')
+        log.debug(f'- setupResult: {info["setupResult"]}')
         if info:
             self.gameServerName = info['serverName']
             self.gameServerIP = info['serverAddr']
@@ -1291,22 +1296,22 @@ class GameServer:
     def controlOnDemandServer(self, state: str = 'start', serverref: str = ''):
         if len(serverref) == 0:
             serverref = self.gameServerRef
-        log.debug('Running controlOnDemandServer-{0} for {1}...'.format(state,serverref))
+        log.debug(f'Running controlOnDemandServer-{state} for {serverref}...')
         if state not in [None, 'stop','halt','shutdown']:
             if not self.updateServerStatus(True): # or self.matchInProgress:
                 return None
 
         headers = self.format_post_header_control(state)
         body = self.format_post_body_serverref(serverref)
-        log.debug('Posting "Remote{0}" to API {1} - {2}'.format(state,self.postServer,body))
+        log.debug(f'Posting "Remote{state}" to API {self.postServer} - {body}')
         r = self.makePostRequest(self.postServer, headers, body)
-        log.debug('Received data from API - Status: {0}; Content-Length: {1}'.format(r.status_code,r.headers['content-length']))
+        log.debug(f'Received data from API - Status: {r.status_code}; Content-Length: {r.headers["content-length"]}')
         if(r):
-            log.debug('controlOnDemandServer-{0} returned JSON info...'.format(state))
+            log.debug(f'controlOnDemandServer-{state} returned JSON info...')
             info = r.json()
             return info
         else:
-            log.error('controlOnDemandServer-{0} failed.'.format(state))
+            log.error(f'controlOnDemandServer-{state} failed.')
         return None
 
     def stopOnDemandServer(self, index: int):
@@ -1385,9 +1390,9 @@ class GameServer:
         if not self.updateServerStatus():
             return False
         # Cache last scores from server status
-        log.debug('endMatch (viaReset={0}): Ended = {1}. matchCode = {2}, redScore = {3} - blueScore = {4}'.format(viaReset, self.endMatchPerformed, self.matchCode, self.redScore, self.blueScore))
+        log.debug(f'endMatch (viaReset={viaReset}): Ended = {self.endMatchPerformed}. matchCode = {self.matchCode}, redScore = {self.redScore} - blueScore = {self.blueScore}')
         if self.endMatchPerformed is True:
-            if self.parent.storeLastPug('**Score:** Red {0} - {1} Blue'.format(self.redScore, self.blueScore), self.redScore, self.blueScore, self.lastMatchCode, viaReset):
+            if self.parent.storeLastPug(f'**Score:** Red {self.redScore} - {self.blueScore} Blue', self.redScore, self.blueScore, self.lastMatchCode, viaReset):
                 log.info('Pug reset; last scores appended successfully.')
             else:
                 log.info('Pug reset; last scores did not append successfully.')
@@ -1401,7 +1406,7 @@ class GameServer:
             if self.lastSetupResult == 'Completed':
                 self.matchInProgress = False
                 self.endMatchPerformed = True
-                self.lastMatchCode = '{0}'.format(self.matchCode)
+                self.lastMatchCode = f'{self.matchCode}'
                 self.matchCode = ''
                 return True
 
@@ -1427,9 +1432,9 @@ class GameServer:
         if len(self.gameServerRotation) > 0:
             # Extended the input a little, rather than simply week number, it's a combination of yearweek (e.g., 202201 - 202252),
             # which works better with smaller rotation pools
-            newServer = int(self.gameServerRotation[int('{:0}{:0>2}'.format(datetime.now().year,datetime.now().isocalendar()[1]))%len(self.gameServerRotation)])-1
+            newServer = int(self.gameServerRotation[int(f'{datetime.now().year}{datetime.now().isocalendar()[1]:02}')%len(self.gameServerRotation)])-1
             if self.gameServerRef != self.allServers[newServer][0]:
-                log.debug('checkServerRotation - Updating current server to: {0}'.format(self.allServers[newServer][1]))
+                log.debug(f'checkServerRotation - Updating current server to: {self.allServers[newServer][1]}')
                 self.useServer(newServer)
         return True
 
@@ -1447,7 +1452,7 @@ class GameServer:
         if serverOnline:
             log.info('Server online.')
             self.gameServerOnDemandReady = True
-            await ctx.send('{0} is ready for action.'.format(self.parent.gameServer.gameServerName))
+            await ctx.send(f'{self.parent.gameServer.gameServerName} is ready for action.')
             self.updateOnDemandServerState.cancel()
         else:
             log.warning('Server not yet online.')
@@ -1477,10 +1482,10 @@ class AssaultPug(PugTeams):
         self.ranked = False
         self.redPower = 0
         self.bluePower = 0
-        self.ratings = None
+        self.ratings = parent.allRatings if parent else None
         self.ratingsFile = ratingsFile
-        log.debug('AssaultPug() instance created with ratings file: {0}, mode: {1}'.format(self.ratingsFile, self.mode))
-        self.ratingsSyncAPI = {'matchDataURL':'','ratingsDataURL':'','playerDataURL':'','apiKey':''}
+        log.debug(f'AssaultPug() instance created with ratings file: {self.ratingsFile}, mode: {self.mode}')
+        self.ratingsSyncAPI = parent.ratingsSyncAPI if parent else {'matchDataURL':'','ratingsDataURL':'','playerDataURL':'','apiKey':''}
 
         self.maps = PugMaps(numMaps, pickModeMaps, self.ranked, self.servers[self.serverIndex].configMaps)
         self.roleRequired = None
@@ -1556,7 +1561,7 @@ class AssaultPug(PugTeams):
         else:
             numberedPlayers = ((i, name(p)) for i, p in enumerate(players, 1) if p)
         fmt = '**{0})** {1}' if number else '{1}'
-        return PLASEP.join(fmt.format(*x) for x in numberedPlayers)
+        return PLASEP.join(f'**{i})** {name}' if number else f'{name}' for i, name in numberedPlayers)
 
     def format_all_players(self, number: bool = False, mention: bool = False):
         return self.format_players(self.all, number=number, mention=mention)
@@ -1574,25 +1579,22 @@ class AssaultPug(PugTeams):
         return self.format_players(self.blue, number=number, mention=mention)
 
     def format_teams(self, number: bool = False, mention: bool = False):
-        teamsStr = '**Red Team:** {}\n**Blue Team:** {}'
         red = self.format_red_players(number=number, mention=mention)
         blue = self.format_blue_players(number=number, mention=mention)
-        return teamsStr.format(red, blue)
+        return f'**Red Team:** {red}\n**Blue Team:** {blue}'
 
     @property
     def format_pug_short(self):
-        fmt = '**__{0.desc} [{1}/{0.maxPlayers}] \|\| {2} \|\| {3} maps__**'
-        return fmt.format(self, len(self), self.gameServer.gameServerName, self.maps.maxMaps)
+        return f'**__{self.desc} [{len(self)}/{self.maxPlayers}] || {self.gameServer.gameServerName} || {self.maps.maxMaps} maps__**'
 
     def format_pug(self, number=True, mention=False):
-        fmt = '**__{0.desc} [{1}/{0.maxPlayers}] \|\| {2} \|\| {3} maps:__**\n{4}'
-        return fmt.format(self, len(self), self.gameServer.gameServerName, self.maps.maxMaps, self.format_all_players(number=number, mention=mention))
+        return f'**__{self.desc} [{len(self)}/{self.maxPlayers}] || {self.gameServer.gameServerName} || {self.maps.maxMaps} maps:__**\n{self.format_all_players(number=number, mention=mention)}'
 
     @property
     def format_match_is_ready(self):
         fmt = ['Match is ready:']
         fmt.append(self.format_teams(mention=True))
-        fmt.append('Maps ({}):\n{}'.format(self.maps.maxMaps, self.maps.format_current_maplist))
+        fmt.append(f'Maps ({self.maps.maxMaps}):\n{self.maps.format_current_maplist}')
         fmt.append(self.gameServer.format_game_server)
         fmt.append(self.gameServer.format_spectator_password)
         return '\n'.join(fmt)
@@ -1605,22 +1607,22 @@ class AssaultPug(PugTeams):
                 # Could improve this in future by caching the state to disk when shutting down and loading back in on restart.
                 return 'Match is in progress, but do not have previous pug info. Please use **!serverstatus** to monitor this match'
 
-            fmt = ['Match in progress ({} ago):'.format(getDuration(self.lastPugTimeStarted, datetime.now()))]
+            fmt = [f'Match in progress ({getDuration(self.lastPugTimeStarted, datetime.now())} ago):']
             fmt.append(self.format_teams(mention=False))
             if self.ranked:
-                fmt.append('Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower)))
-            fmt.append('Maps ({}): {}'.format(self.maps.maxMaps, self.maps.format_current_maplist))
+                fmt.append(f'Red RP: {str(self.redPower)}; Blue RP: {str(self.bluePower)}')
+            fmt.append(f'Maps ({self.maps.maxMaps}): {self.maps.format_current_maplist}')
             fmt.append('Mode: ' + self.mode+' @ '+self.gameServer.format_game_server)
             fmt.append(self.gameServer.format_spectator_password)
             if len(self.queuedPlayers):
-                fmt.append('Queued players for next pug: {}'.format(self.format_queued_players(mention=False)))
+                fmt.append(f'Queued players for next pug: {self.format_queued_players(mention=False)}')
             return '\n'.join(fmt)
         return None
 
     @property
     def format_last_pug(self):
         if self.lastPugTimeStarted and '{}' in self.lastPugStr:
-            return self.lastPugStr.format(getDuration(self.lastPugTimeStarted, datetime.now()))
+            return self.lastPugStr.replace('{}', getDuration(self.lastPugTimeStarted, datetime.now()))
         else:
             return 'No last pug info available.'
 
@@ -1629,7 +1631,7 @@ class AssaultPug(PugTeams):
         indexedServers = ((i,s) for i,s in enumerate(self.servers, 1) if s)
         fmt = []
         for x in indexedServers:
-            fmt.append('**{0})** {1}'.format(str(x[0]), x[1].format_server_info))
+            fmt.append(f'**{x[0]})** {x[1].format_server_info}')
 
         return '\n'.join(fmt)
 
@@ -1660,7 +1662,7 @@ class AssaultPug(PugTeams):
             serverRef = self.gameServer.gameServerRef
             if self.parent and serverRef in self.parent.serverLocks:
                 existing_lock = self.parent.serverLocks[serverRef]
-                log.debug('setupPug() - Server {0} is already locked by channel {1} mode {2}'.format(serverRef, existing_lock[0], existing_lock[1]))
+                log.debug(f'setupPug() - Server {serverRef} is already locked by channel {existing_lock[0]} mode {existing_lock[1]}')
                 return False
             
             # Try to set up 5 times with a 5s delay between attempts.
@@ -1671,7 +1673,7 @@ class AssaultPug(PugTeams):
                 startMap = self.maps.startMap # Only send this if it's not the last map in the list, otherwise it'll take longer to set up
             for x in range(0, 5):
                 result = self.gameServer.setupMatch(self.maxPlayers, self.maps.maps, self.mode, startMap)
-                log.debug('Setup attempt {0}/5: Result returned: {1}'.format(x+1,result))
+                log.debug(f'Setup attempt {x+1}/5: Result returned: {result}')
                 if not result:
                     time.sleep(5)
                 else:
@@ -1680,10 +1682,10 @@ class AssaultPug(PugTeams):
                     if self.parent:
                         lock_key = (self.channelId, self.mode)
                         self.parent.serverLocks[serverRef] = lock_key
-                        log.debug('setupPug() - Locked server {0} for channel {1} mode {2}'.format(serverRef, self.channelId, self.mode))
+                        log.debug(f'setupPug() - Locked server {serverRef} for channel {self.channelId} mode {self.mode}')
                     if self.gameServer.matchCode in [None,'']:
                         # Generate a temporary match code which can be updated later
-                        self.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
+                        self.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
                     self.storeLastPug(matchCode=self.gameServer.matchCode)
                     return True
             self.pugTempLocked = False
@@ -1694,18 +1696,18 @@ class AssaultPug(PugTeams):
             fmt = []
             if matchCode in [None,'','N/A']:
                 if self.gameServer.matchCode in [None,'','N/A']:
-                    self.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
+                    self.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
                 matchCode = self.gameServer.matchCode
-            fmt.append('Last **{}** ({} ago)'.format(self.desc, '{}'))
+            fmt.append(f'Last **{self.desc}** ({{}} ago)')
             fmt.append(self.format_teams())
             if self.ranked:
-                fmt.append('Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower)))
-            fmt.append('Maps ({}):\n{}'.format(self.maps.maxMaps, self.maps.format_current_maplist))
+                fmt.append(f'Red RP: {str(self.redPower)}; Blue RP: {str(self.bluePower)}')
+            fmt.append(f'Maps ({self.maps.maxMaps}):\n{self.maps.format_current_maplist}')
             self.lastPugStr = '\n'.join(fmt)
             self.lastPugTimeStarted = datetime.now()
             self.lastPlayedMode = self.mode
             if self.ranked:
-                log.debug('storeLastPug(viaReset={5}) - Calling via matchReady - storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False), str(viaReset)))
+                log.debug(f'storeLastPug(viaReset={viaReset}) - Calling via matchReady - storeRankedPug({self.mode},{matchCode},{redScore},{blueScore},{self.lastPugTimeStarted})')
                 if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), False):
                     log.debug('storeRankedPug() - Stored game successfully via storeLastPug matchReady')
                 else:
@@ -1717,7 +1719,7 @@ class AssaultPug(PugTeams):
             fmt.append(appendstr)
             self.lastPugStr = '\n'.join(fmt)
             if self.ranked:
-                log.debug('storeLastPug(viaReset={5}) - Calling storeRankedPug({0},{1},{2},{3},{4})'.format(self.mode, matchCode, str(redScore), str(blueScore), self.lastPugTimeStarted, str(False), str(viaReset)))
+                log.debug(f'storeLastPug(viaReset={viaReset}) - Calling storeRankedPug({self.mode},{matchCode},{redScore},{blueScore},{self.lastPugTimeStarted})')
                 if viaReset: # do not track as a ranked game if reset before completion
                     if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), False):
                         log.debug('storeRankedPug() - Stored game successfully via storeLastPug (update, via reset)')
@@ -1764,7 +1766,7 @@ class AssaultPug(PugTeams):
             # Check if this is our lock
             if self.parent.serverLocks[serverRef] == lock_key:
                 del self.parent.serverLocks[serverRef]
-                log.debug('resetPug() - Released server lock for channel {0} mode {1} server {2}'.format(self.channelId, mode, serverRef))
+                log.debug(f'resetPug() - Released server lock for channel {self.channelId} mode {mode} server {serverRef}')
         
         # Restore players from temporary queues in other instances
         if self.parent:
@@ -1781,21 +1783,51 @@ class AssaultPug(PugTeams):
         self.ratings = None
         self.roleRequired = None
         if rankedMode == False and self.ratingsFile != '':
-            log.debug('setRankedMode({0}) - Calling savePugRatings({1})'.format(rankedMode,self.ratingsFile))
+            log.debug(f'setRankedMode({rankedMode}) - Calling savePugRatings({self.ratingsFile})')
             self.savePugRatings(self.ratingsFile)
         if skipResets != True:
-            log.debug('setRankedMode({0}) - Calling softPugTeamReset()'.format(rankedMode))
+            log.debug(f'setRankedMode({rankedMode}) - Calling softPugTeamReset()')
             self.softPugTeamReset() # clear any caps / picks
-            log.debug('setRankedMode({0}) - Calling configurePlayersRankedMode({1},{2})'.format(rankedMode,self.ranked,self.roleRequired))
+            log.debug(f'setRankedMode({rankedMode}) - Calling configurePlayersRankedMode({self.ranked},{self.roleRequired})')
             self.configurePlayersRankedMode(self.ranked, self.roleRequired) # reconfigure teams and players
-            log.debug('setRankedMode({0}) - Calling maps.resetMaps()'.format(rankedMode))
+            log.debug(f'setRankedMode({rankedMode}) - Calling maps.resetMaps()')
             self.maps.resetMaps() # reset map selection
         if rankedMode and self.ratingsFile != '':
-            log.debug('setRankedMode({0}) - Calling loadPugRatings({1})'.format(rankedMode,self.ratingsFile))
+            log.debug(f'setRankedMode({rankedMode}) - Calling loadPugRatings({self.ratingsFile})')
             if self.loadPugRatings(self.ratingsFile):
-                log.debug('setRankedMode({0}) - Checking self.ratings...'.format(rankedMode))
+                log.debug(f'setRankedMode({rankedMode}) - Checking self.ratings...')
+                if self.ratings is None or self.ratings == {}:
+                    log.debug(f'setRankedMode({rankedMode}) - Checked self.ratings - requires initialising.')
+                    newMode =  {
+                        'mode': self.mode,
+                        'maps':{},
+                        'eligibility':'',
+                        'registrations':[],
+                        'ratings':[],
+                        'lastsync':'',
+                        'fixedpicklimit':0,
+                        'capMode':2,
+                        'capWindow':0,
+                        'capRole':'Ranked Captains',
+                        'games':[],
+                        'scoring':{
+                            'mode': 'permap',
+                            'teamWin': 3,
+                            'teamLose': -3,
+                            'capWin': 1,
+                            'capLose': 0,
+                            'volCapWin': 0,
+                            'volCapLose': 0
+                        },
+                        'lastupdated':'',
+                        'startmapfrompick':'',
+                        'randomorder':''
+                    }
+                    self.parent.allRatings['rankedgames'].append(newMode)
+                    self.savePugRatings(ratingsFile=self.ratingsFile, ratingsUpdates=self.parent.allRatings)
+                    self.loadPugRatings(self.ratingsFile)
                 if self.ratings is not None:
-                    log.debug('setRankedMode({0}) - self.ratings present.'.format(rankedMode))
+                    log.debug(f'setRankedMode({rankedMode}) - self.ratings present.')
                     # Set any missing defaults
                     if 'capMode' not in self.ratings:
                         self.ratings['capMode'] = 0
@@ -1808,10 +1840,10 @@ class AssaultPug(PugTeams):
                     # Determine if all players have a ratings entry and remove those who don't or are not eligible
                     if self.ratings['eligibility'] is not None and self.ratings['eligibility'] != '':
                         self.roleRequired = self.ratings['eligibility'] # Requires a specific discord role
-                    log.debug('setRankedMode({0}) - Calling checkRankedPlayersEligibility({1})'.format(rankedMode,self.players))
+                    log.debug(f'setRankedMode({rankedMode}) - Calling checkRankedPlayersEligibility({self.players})')
                     if self.checkRankedPlayersEligibility(self.players):
                         self.maps.rankedMode = self.ranked = True
-                        log.debug('setRankedMode({0}) - Ranked mode setup, calling configurePlayersRankedMode({1},{2},(JSON))'.format(rankedMode,self.ranked,self.roleRequired))
+                        log.debug(f'setRankedMode({rankedMode}) - Ranked mode setup, calling configurePlayersRankedMode({self.ranked},{self.roleRequired},(JSON))')
                         self.configurePlayersRankedMode(self.ranked, self.roleRequired, self.ratings)
                         if 'maps' in self.ratings:
                             if 'randomorder' in self.ratings['maps']:
@@ -1824,13 +1856,16 @@ class AssaultPug(PugTeams):
                                 self.maps.setMaxMaps(self.ratings['maps']['fixedpicklimit'])
                             if 'startmapfrompick' in self.ratings['maps']:
                                 self.maps.startMapFromPick = max(0, int(self.ratings['maps']['startmapfrompick']))
-                            if 'maplist' in self.ratings['maps']:
+                            if 'maplist' in self.ratings['maps'] and self.ratings['maps']['maplist'] is not None:
                                 # build a filtered map list array from this data
                                 self.maps.filteredMapsList = []
                                 for x in self.ratings['maps']['maplist']:
                                     self.maps.filteredMapsList.append(x['map'])
                                 self.maps.filteredMapsList = list(set(self.maps.filteredMapsList))
                                 self.maps.mapListWeighting = self.ratings['maps']['maplist']
+                else:
+                    log.debug(f'setRankedMode({rankedMode}) - Failed to establish ratings data for given mode.')
+                    return False
         return self.ranked
     
     def setMode(self, requestedMode: str, ignoreLimits: bool = False):
@@ -1840,7 +1875,6 @@ class AssaultPug(PugTeams):
             requestedMode = next((key for key, _ in MODE_CONFIG.items() if key.upper()==requestedMode.upper()), None)
             if (self.modeLimit > 0 and MODE_CONFIG[requestedMode].modeGroup not in [0, self.modeLimit]) and ignoreLimits == False:
                 return False, 'Mode limitations are in effect in this channel. Please select from a list of valid modes.'
-            lastMode = self.mode
             ## ProAS and iAS are played with a different maximum number of players.
             ## Can't change mode from std to pro/ias if more than the maximum number of players allowed for these modes are signed.
             if len(self.players) > MODE_CONFIG[requestedMode].maxPlayers:
@@ -1853,12 +1887,12 @@ class AssaultPug(PugTeams):
                 self.name = MODE_CONFIG[requestedMode].name
                 additionalInfo = ''
                 if MODE_CONFIG[requestedMode].isRanked:
-                    log.debug('Setting up ranked mode - {0}'.format(requestedMode))
+                    log.debug(f'Setting up ranked mode - {requestedMode}')
                     if self.setRankedMode(MODE_CONFIG[requestedMode].isRanked, False):
                         additionalInfo = ' (ranked, best of '+str(self.maps.maxMaps)+' maps)'
                     else:
-                        log.debug('setRankedMode({0}) failed'.format(MODE_CONFIG[requestedMode].isRanked))
-                        self.mode = lastMode # Revert if ratings failed to load for this game mode    
+                        log.debug(f'setRankedMode({MODE_CONFIG[requestedMode].isRanked}) failed')
+                        requestedMode = None
                 else:
                     self.setRankedMode(False, False)
                 self.desc = self.name + ' (' + self.mode + ') PUG'
@@ -1875,15 +1909,17 @@ class AssaultPug(PugTeams):
 
     def loadPugRatings(self, ratingsFile, returnDataOnly: bool = False):
         """Loads the ranked game ratings data from the JSON configuration file"""
+        return self.parent.loadPugRatings(ratingsFile, returnDataOnly)
+        # Legacy code - now handled by parent
         self.ratings = None # save before load?
-        log.debug('loadPugRatings({0}) started'.format(ratingsFile))
+        log.debug(f'loadPugRatings({ratingsFile}) started')
         with open(ratingsFile, 'r') as f:
-            log.debug('loadPugRatings({0}) json.load enter'.format(ratingsFile))
+            log.debug(f'loadPugRatings({ratingsFile}) json.load enter')
             try:
                 ratingsData = json.load(f)
             except:
                 ratingsData = None
-            log.debug('loadPugRatings({0}) json.load finished'.format(ratingsFile))
+            log.debug(f'loadPugRatings({ratingsFile}) json.load finished')
             if ratingsData:
                 if returnDataOnly: # For in-line updates
                     return ratingsData
@@ -1894,7 +1930,7 @@ class AssaultPug(PugTeams):
                     for gamedata in ratingsData['rankedgames']:
                         if str(gamedata['mode']).upper() == self.mode.upper():
                             self.ratings = gamedata
-                            log.debug('loadPugRatings({0}) stored ratings data for {1}'.format(ratingsFile,self.mode))
+                            log.debug(f'loadPugRatings({ratingsFile}) stored ratings data for {self.mode}')
                             return True
                 else:
                     # Generate an empty ranked schema with the default mode
@@ -1902,7 +1938,7 @@ class AssaultPug(PugTeams):
                         'syncapi': self.ratingsSyncAPI,
                         'rankedgames': [
                             {
-                                'mode':'rASPlus',
+                                'mode': MODE_RANKED_DEFAULT,
                                 'maps':{},
                                 'eligibility':'',
                                 'registrations':[],
@@ -1914,11 +1950,13 @@ class AssaultPug(PugTeams):
                     self.savePugRatings(ratingsFile, rkData)
                     self.loadPugRatings(ratingsFile)
             else:
-                log.debug('loadPugRatings({0}) ratingsData is not a valid object'.format(ratingsFile))
+                log.debug(f'loadPugRatings({ratingsFile}) ratingsData is not a valid object')
         return False
         
     def savePugRatings(self, ratingsFile, ratingsUpdates = None):
         """Saves the ranked game ratings data to the JSON configuration file"""
+        return self.parent.savePugRatings(ratingsFile, ratingsUpdates)
+        # Legacy code - now handled by parent
         with open(ratingsFile) as fr:
             try:
                 ratingsData = json.load(fr)
@@ -1929,7 +1967,7 @@ class AssaultPug(PugTeams):
                 # Update the specific ratings data section before dumping it
                 if ratingsUpdates not in [None,'']:
                     if 'rankedgames' in ratingsUpdates and ratingsUpdates['rankedgames'] is not None:
-                        log.debug('savePugRatings({0}) updating ratingsData directly from provided ratingsUpdates.'.format(ratingsFile))
+                        log.debug(f'savePugRatings({ratingsFile}) updating ratingsData directly from provided ratingsUpdates.')
                         ratingsData['rankedgames']  = ratingsUpdates['rankedgames'] # pass valid data straight into the file
                 else:
                     if self.ratings not in [None,'']:
@@ -1949,7 +1987,7 @@ class AssaultPug(PugTeams):
                         else:
                             ratingsData['rankedgames'].append(self.ratings)
                     else:
-                        log.warning('savePugRatings({0}) failed to generate ratingsData. Cached ratings not present and updates not provided.'.format(ratingsFile))
+                        log.warning(f'savePugRatings({ratingsFile}) failed to generate ratingsData. Cached ratings not present and updates not provided.')
                 ratingsData['savedate'] = datetime.now().isoformat()
                 json.dump(ratingsData, fw, indent=4)
                 fw.close()
@@ -1984,7 +2022,7 @@ class AssaultPug(PugTeams):
                 if str(rankedPlayer['did']) in playerIDs or int(rankedPlayer['did']) in playerIDs:
                     playerRatings.append(rankedPlayer['ratingvalue'])
                     playerMap[int(rankedPlayer['did'])] = rankedPlayer['ratingvalue']
-        log.debug('makeRatedTeams() - playerIDs = {0}; playerRatings = {1}'.format(playerIDs,playerRatings))
+        log.debug(f'makeRatedTeams() - playerIDs = {playerIDs}; playerRatings = {playerRatings}')
         minDiff = float('inf')
         for mask in range(1 << len(playerRatings)):
             if bin(mask).count('1') == len(playerRatings)/2:
@@ -1995,13 +2033,13 @@ class AssaultPug(PugTeams):
                     minDiff = diff
                     rankedRed = x
                     rankedBlue = y
-        log.debug('makeRatedTeams() masked values: red={0}, blue={1}'.format(rankedRed,rankedBlue))
+        log.debug(f'makeRatedTeams() masked values: red={rankedRed}, blue={rankedBlue}')
         if len(simulatedRatings) == 0:
             self.redPower = sum(rankedRed)
             self.bluePower = sum(rankedBlue)
-            msg = 'Red RP: {0}; Blue RP: {1}'.format(str(self.redPower),str(self.bluePower))
+            msg = f'Red RP: {str(self.redPower)}; Blue RP: {str(self.bluePower)}'
         else:
-            msg = 'Red RP: {0}; Blue RP: {1}'.format(str(sum(rankedRed)),str(sum(rankedBlue)))
+            msg = f'Red RP: {str(sum(rankedRed))}; Blue RP: {str(sum(rankedBlue))}'
         # Establish self.red and self.blue 
         if len(simulatedRatings):
             for p in simulatedRatings:
@@ -2062,22 +2100,23 @@ class AssaultPug(PugTeams):
                     self.blue.remove(blueCap)
                     self.blue.insert(0,blueCap)
                 if len(simulatedRatings) == 0:
-                    msg = msg+'\nRed captain: {0}\nBlue captain: {1}'.format(redCap.mention,blueCap.mention)
+                    msg = msg+f'\nRed captain: {redCap.mention}\nBlue captain: {blueCap.mention}'
         if len(simulatedRatings):
-            msg = msg+'\nSimulated Red team: {0}'.format(PLASEP.join(sp['name'] for sp in simRed))
-            msg = msg+'\nSimulated Blue team: {0}'.format(PLASEP.join(sp['name'] for sp in simBlue))
-        log.debug('makeRatedTeams() completed: {0}'.format(msg.replace('\n','; ')))
+            msg = msg+f'\nSimulated Red team: {PLASEP.join(sp["name"] for sp in simRed)}'
+            msg = msg+f'\nSimulated Blue team: {PLASEP.join(sp["name"] for sp in simBlue)}'
+        msg = msg.replace("\n","; ")
+        log.debug(f'makeRatedTeams() completed: {msg}')
         return msg
 
     def storeRankedPug(self, mode: str = '', matchCode: str = '', redScore: int = 0, blueScore: int = 0, timeStarted: str = '', hasEnded: bool = False, redPlayers: list = [], bluePlayers: list = [], maps: list = [], redPower = 0, bluePower = 0, timeEnded = ''):
-        """Stores ranked pug match data and handles end-game scenarios"""
+        """Stores ranked pug match data and handles end-game scenarios""" # FIX ME
         if mode in [None, ''] and self.ranked:
             mode = self.mode
         if matchCode in [None,'','N/A']:
             if self.gameServer.matchCode in [None,'','N/A']:
-                self.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
+                self.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
             matchCode = self.gameServer.matchCode
-            log.debug('storeRankedPug() - grabbed mode from gameServer.matchCode - {0}'.format(matchCode))
+            log.debug(f'storeRankedPug() - grabbed mode from gameServer.matchCode - {matchCode}')
         if matchCode in [None,'','N/A']:
             return False
         if hasEnded:
@@ -2198,7 +2237,7 @@ class AssaultPug(PugTeams):
                 loseCap.append( match['capblue']['id'])
             if void:
                 match['completed'] = False
-                log.debug('applyRankedScoring() - Voided match {0}'.format(match['gameref']))
+                log.debug(f'applyRankedScoring() - Voided match {match["gameref"]}')
             elif 'scoring' in modeData:
                 scoremode = modeData['scoring']['mode']
                 capWinRP = modeData['scoring']['capWin']
@@ -2263,7 +2302,7 @@ class AssaultPug(PugTeams):
     
     def convertQueuedPlayers(self):
         """Converts a player queue to active players"""
-        log.debug('convertQueuedPlayers() - Queue length: {0}; Pug Locked: {1}'.format(str(len(self.queuedPlayers)), str(self.pugLocked)))
+        log.debug(f'convertQueuedPlayers() - Queue length: {str(len(self.queuedPlayers))}; Pug Locked: {str(self.pugLocked)}')
         if len(self.queuedPlayers):
             self.players = self.queuedPlayers
         self.queuedPlayers = []
@@ -2300,12 +2339,19 @@ class PUG(commands.Cog):
         self.customAnimatedEmojis = {}
         self.utReporterChannel = None
         self.cachedServers = None
-        self.pugInstances = {}  # dict[channelId, dict[mode, AssaultPug]] - supports multiple pugs per channel by mode
-        self._defaultPugInfo = AssaultPug(numPlayers=DEFAULT_PLAYERS, numMaps=DEFAULT_MAPS, pickModeTeams=DEFAULT_PICKMODETEAMS, pickModeMaps=DEFAULT_PICKMODEMAPS, configFile=DEFAULT_CONFIG_FILE, ratingsFile=DEFAULT_RATING_FILE, modeLimit=0, mode=MODE_DEFAULT, parent=self, channelId=None)
+        self.configLoadTime = 0
         self.configFile = configFile
+        self.ratingsFile = DEFAULT_RATING_FILE
+        self.allRatings = {} # centrally cached ratings data for all modes, keyed by mode name (e.g., 'rASPlus') - used to reduce file I/O and for quick access when switching modes or validating player eligibility
+        self.ratingsLock = False # simple lock to prevent multiple simultaneous ratings file accesses, as these can cause conflicts and data loss.
+        self.ratingsSyncAPI = {'matchDataURL':'','ratingsDataURL':'','playerDataURL':'','apiKey':''}
+
+        self.pugInstances = {}  # dict[channelId, dict[mode, AssaultPug]] - supports multiple pugs per channel by mode
+        self._defaultPugInfo = AssaultPug(numPlayers=DEFAULT_PLAYERS, numMaps=DEFAULT_MAPS, pickModeTeams=DEFAULT_PICKMODETEAMS, pickModeMaps=DEFAULT_PICKMODEMAPS, configFile=self.configFile, ratingsFile=self.ratingsFile, modeLimit=0, mode=MODE_DEFAULT, parent=self, channelId=None)
 
         # Track players across all instances to prevent multi-instance conflicts
         self.playerInstances = {}  # playerId -> set of (channelId, mode) tuples
+        self.playerPreferences = {}  # playerId -> set of (mode, maps) tuples
         self.tempQueuedPlayers = {}  # channelId -> list of (player, flags) tuples temporarily removed
         self.serverLocks = {}  # serverRef -> (channelId, mode) tuple (prevents multiple instances using same server)
         self.modePugLastActivity = {}  # (channelId, mode) -> datetime (tracks when pug was last updated for default selection)
@@ -2359,28 +2405,7 @@ class PUG(commands.Cog):
             return self._defaultPugInfo
         return self.getPugForChannel(self.activeChannel.id)
 
-    def _getPugForChannel(self, channelId, mode=None):
-        """Get pug instance for a specific channel and mode.
-        
-        Args:
-            channelId: ID of the Discord channel
-            mode: Optional game mode string. If None, returns most active pug.
-            
-        Returns:
-            AssaultPug instance or _defaultPugInfo if not found
-        """
-        if channelId is None:
-            return self._defaultPugInfo
-        
-        if mode is None:
-            # Return most active pug in channel
-            _, pug = self.getDefaultPugByActivity(channelId)
-            return pug
-        else:
-            # Return specific mode pug
-            return self.getPugForModeInChannel(channelId, mode)
-
-    def getPugForModeInChannel(self, channelId, mode):
+    def getPugForModeInChannel(self, channelId, mode, ignoreMissing: bool = False):
         """Get or create a pug instance for a specific channel and mode.
         
         Args:
@@ -2398,7 +2423,7 @@ class PUG(commands.Cog):
         
         mode = next((key for key, _ in MODE_CONFIG.items() if key.upper()==mode.upper()), None)
 
-        if mode not in self.pugInstances[channelId]:
+        if mode not in self.pugInstances[channelId] and ignoreMissing == False:
             # Create new pug instance for this mode in this channel
             self.pugInstances[channelId][mode] = AssaultPug(
                 numPlayers=DEFAULT_PLAYERS,
@@ -2414,7 +2439,13 @@ class PUG(commands.Cog):
             )
             for s in self.pugInstances[channelId][mode].servers:
                 s.parent = self.pugInstances[channelId][mode] # Ensure servers have reference to their specific pug instance
-        
+            modeCheck = self.pugInstances[channelId][mode].setMode(mode)
+            if not modeCheck[0]:
+                log.debug(f'getPugForModeInChannel() - Failed to set mode {mode} for new pug instance in channel {channelId}. Error: {modeCheck[1]}')
+                del self.pugInstances[channelId][mode] # Remove the instance if mode setup failed
+                return None
+        elif mode not in self.pugInstances[channelId] and ignoreMissing == True:
+            return None
         return self.pugInstances[channelId][mode]
 
     def getDefaultPugByActivity(self, channelId):
@@ -2427,12 +2458,12 @@ class PUG(commands.Cog):
             tuple (mode, AssaultPug) for the most active pug, or (MODE_DEFAULT, _defaultPugInfo) if no pugs exist
         """
         if channelId is None or channelId not in self.pugInstances:
-            log.debug('getDefaultPugByActivity() - No pugs found for channelId {0}, returning defaultPugInfo.'.format(channelId))
+            log.debug(f'getDefaultPugByActivity() - No pugs found for channelId {channelId}, returning defaultPugInfo.')
             return (MODE_DEFAULT, self._defaultPugInfo)
         
         modes_dict = self.pugInstances[channelId]
         if not modes_dict:
-            log.debug('getDefaultPugByActivity() - No pugs instances for channelId {0}, returning defaultPugInfo.'.format(channelId))
+            log.debug(f'getDefaultPugByActivity() - No pugs instances for channelId {channelId}, returning defaultPugInfo.')
             return (MODE_DEFAULT, self._defaultPugInfo)
         
         # Sort by: most players, then most recent activity, then most recent creation
@@ -2468,7 +2499,7 @@ class PUG(commands.Cog):
             return pug
         else:
             # Return specific mode pug
-            return self.getPugForModeInChannel(channelId, mode)
+            return self.getPugForModeInChannel(channelId=channelId, mode=mode)
 
     def validatePugChannel(self, channel, mode=None):
         """Ensure a pug exists for the given channel and mode.
@@ -2493,7 +2524,7 @@ class PUG(commands.Cog):
             return pug
         else:
             # Create if needed and return
-            return self.getPugForModeInChannel(channel.id, mode)
+            return self.getPugForModeInChannel(channelId=channel.id, mode=mode)
 
     def getAllPugsInChannel(self, channel):
         """Get all pug instances in a channel.
@@ -2657,11 +2688,31 @@ class PUG(commands.Cog):
         # Check for cross-channel conflicts
         conflictingChannels = {channelId for channelId, mode in activePugs if channelId != targetChannelId}
         if conflictingChannels:
-            return False, f"You are already in active pugs in other channels: {', '.join(str(cid) for cid in conflictingChannels)}"
+            return False, f'You are already in active pugs in other channels: {", ".join(str(cid) for cid in conflictingChannels)}'
         
         # Allow intra-channel multi-mode (same channel, different modes)
         # No conflicts within the same channel
         return True, None
+
+    def pushMultiInstancePlayers(self, channelId, activeMode):
+        """Removes players from the queue of non-active games while an active game is underway"""
+        if channelId not in self.pugInstances:
+            return False, f'No pugs found for channel ID {channelId}'
+        playerList = []
+        for mode, pug in self.pugInstances[channelId].items():
+            if mode == activeMode:
+                playerList = pug.players + pug.queuedPlayers + pug.red + pug.blue
+                continue
+        if len(playerList):
+            for mode, pug in self.pugInstances[channelId].items():
+                if mode != activeMode:
+                    for player in pug.players:
+                        if player in playerList:
+                            self.trackPlayerLeave(player, channelId, mode)
+                            if channelId not in self.tempQueuedPlayers:
+                                self.tempQueuedPlayers[channelId] = []
+                            self.tempQueuedPlayers[channelId].append((player, {'mode': mode}))
+        return True
 
     def restoreMultiInstancePlayers(self, pug):
         """Restore players to a pug instance after reload/server restart.
@@ -2678,6 +2729,98 @@ class PUG(commands.Cog):
             # Queued players are not tracked as active
             pass
 
+    def loadPugRatings(self, ratingsFile, returnDataOnly: bool = False):
+        """Loads the ranked game ratings data from the JSON configuration file"""
+        self.allRatings = None # save before load?
+        log.debug(f'loadPugRatings({ratingsFile}) started')
+        with open(ratingsFile, 'r') as f:
+            log.debug(f'loadPugRatings({ratingsFile}) json.load enter')
+            try:
+                ratingsData = json.load(f)
+            except:
+                ratingsData = None
+            log.debug(f'loadPugRatings({ratingsFile}) json.load finished')
+            if ratingsData:
+                log.debug(f'loadPugRatings({ratingsFile}) ratingsData loaded')
+                if returnDataOnly: # For in-line updates
+                    return ratingsData
+                if 'syncapi' in ratingsData:
+                    self.ratingsSyncAPI = ratingsData['syncapi']
+                if 'rankedgames' in ratingsData:
+                    self.allRatings = ratingsData
+                    # Find the mode and specific ratings data for eligible ranked PUGs (FIX ME)
+                    syncedModes = []
+                    for gamedata in self.allRatings['rankedgames']:
+                        log.debug(f'loadPugRatings({ratingsFile}) looking for mode to update: {gamedata["mode"]}')
+                        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=gamedata['mode'], ignoreMissing=True)
+                        if pug is not None:
+                            pug.ratings = gamedata
+                            log.debug(f'loadPugRatings({ratingsFile}) cached ratings data for {pug.mode}')
+                            syncedModes.append(gamedata['mode'])
+                        else:
+                            log.debug(f'loadPugRatings({ratingsFile}) could not devolve ratings data for {gamedata["mode"]}')
+                    return True
+                else:
+                    # Generate an empty ranked schema with the default mode
+                    rkData = {
+                        'syncapi': self.ratingsSyncAPI,
+                        'rankedgames': [
+                            {
+                                'mode': MODE_RANKED_DEFAULT,
+                                'maps':{},
+                                'eligibility':'',
+                                'registrations':[],
+                                'ratings':[],
+                                'lastsync':''
+                            }
+                        ]
+                    }
+                    self.savePugRatings(ratingsFile, rkData)
+                    log.debug(f'loadPugRatings({ratingsFile}) established new ratings data.')
+                    self.loadPugRatings(ratingsFile)
+            else:
+                log.debug(f'loadPugRatings({ratingsFile}) ratingsData is not a valid object')
+        return False
+        
+    def savePugRatings(self, ratingsFile, ratingsUpdates = None):
+        with open(ratingsFile) as fr:
+            try:
+                ratingsData = json.load(fr)
+            except:
+                ratingsData = None
+        if ratingsData not in [None,''] or ratingsUpdates not in [None,'']:
+            with open(ratingsFile,'w') as fw:
+                # Update the specific ratings data section before dumping it
+                if ratingsUpdates not in [None,'']:
+                    if 'rankedgames' in ratingsUpdates and ratingsUpdates['rankedgames'] is not None:
+                        log.debug(f'savePugRatings({ratingsFile}) updating ratingsData directly from provided ratingsUpdates.')
+                        ratingsData['rankedgames']  = ratingsUpdates['rankedgames'] # pass valid data straight into the file
+                else:
+                    if self.allRatings not in [None,'',{}]:
+                        log.debug(f'savePugRatings({ratingsFile}) updating ratingsData from cached allRatings object...')
+                        for cacheddata in self.allRatings['rankedgames']:
+                            if ratingsData['rankedgames'] is not None:
+                                for gamedata in ratingsData['rankedgames']:
+                                    if str(gamedata['mode']).upper() == str(cacheddata['mode']).upper():
+                                        cacheddata['lastupdated'] = datetime.now().isoformat()
+                                        for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','lastupdated','randomorder']:
+                                            if key not in cacheddata:
+                                                if key in ['registrations','ratings','games']:
+                                                    cacheddata[key] = []
+                                                elif key in ['maps','scoring']:
+                                                    cacheddata[key] = {}
+                                                else:
+                                                    cacheddata[key] = ""
+                                            gamedata[key] = cacheddata[key]
+                            else:
+                                ratingsData['rankedgames'].append(cacheddata)
+                    else:
+                        log.warning(f'savePugRatings({ratingsFile}) failed to generate ratingsData. Cached ratings not present and updates not provided.')
+                ratingsData['savedate'] = datetime.now().isoformat()
+                json.dump(ratingsData, fw, indent=4)
+                fw.close()
+        return True
+
 #########################################################################################
 # Loops.
 #########################################################################################
@@ -2688,7 +2831,7 @@ class PUG(commands.Cog):
             if not pug.pugLocked:
                 continue
             queueCheck = False
-            log.info('Updating game server for channel {0} mode {1} [pugLocked=True]..'.format(channelId, mode))
+            log.info(f'Updating game server for channel {channelId} mode {mode} [pugLocked=True]..')
             if not pug.gameServer.updateServerStatus():
                 log.warning('Cannot contact game server.')
             if len(pug.queuedPlayers):
@@ -2698,7 +2841,7 @@ class PUG(commands.Cog):
                 channel = discord.Client.get_channel(self.bot, channelId)
                 if channel is None:
                     continue
-                msg = 'Match finished. Resetting pug ({0})'.format(mode)
+                msg = f'Match finished. Resetting pug ({mode})'
                 if pug.ranked:
                     msg = msg + ' and updating player RP.'
                     await channel.send(msg)
@@ -2768,7 +2911,7 @@ class PUG(commands.Cog):
                     matchref = pug.gameServer.lastMatchCode
                 elif len(pug.gameServer.matchCode):
                     matchref = pug.gameServer.matchCode
-                log.debug('Sending match report to {0}; last mode={1}; last matchref={2};'.format(self.activeChannel, pug.lastPlayedMode, matchref))
+                log.debug(f'Sending match report to {self.activeChannel}; last mode={pug.lastPlayedMode}; last matchref={matchref};')
                 pug.matchReportPending = False
                 await self.rkrp(self.activeChannel, mode=pug.lastPlayedMode, matchref=matchref)
         return
@@ -2790,7 +2933,7 @@ class PUG(commands.Cog):
             for channelId, mode, pug in self.getAllActivePugs():
                 if not pug.pugLocked:
                     log.debug('updateServerRotation loop - calling checkServerRotation() for channel pug')
-                    pug.gameServer.checkServerRotation()
+                    pug.gameServer.checkServerRotation() # FIX ME
         return
 #########################################################################################
 # Utilities.
@@ -2807,7 +2950,9 @@ class PUG(commands.Cog):
                         self.utReporterChannel = channel
                 if 'reporterconsolewatermark' in info['pug']:
                     self._defaultPugInfo.gameServer.utQueryConsoleWatermark = info['pug']['reporterconsolewatermark']
-
+                # Load player preferences
+                if 'playerprefs' in info['pug'] and isinstance(info['pug']['playerprefs'], dict):
+                    self.playerPreferences = info['pug']['playerprefs']
                 # Load per-channel PUG states
                 if 'channels' in info['pug'] and isinstance(info['pug']['channels'], dict):
                     for channelId_str, channelInfo in info['pug']['channels'].items():
@@ -2822,10 +2967,17 @@ class PUG(commands.Cog):
                         pug = self.getPugForChannel(channelId)
                         if 'current' in channelInfo and isinstance(channelInfo['current'], dict):
                             current = channelInfo['current']
+                            modelimit = 0
+                            if 'mode' in current:
+                                pug = self.getPugForModeInChannel(channelId=channelId, mode=current['mode'], ignoreMissing=True)
+                                if pug is None:
+                                    pug = self.getPugForChannel(channelId=channelId)
+                                pug.modeLimit = modelimit
+                                pug.setMode(current['mode'],True) # TEST ME
+                            else:
+                                pug = self.getPugForChannel(channelId=channelId)
                             if 'modelimit' in current:
                                 pug.modeLimit = current['modelimit']
-                            if 'mode' in current:
-                                pug.setMode(current['mode'], True)
                             if 'playerlimit' in current:
                                 pug.setMaxPlayers(current['playerlimit'])
                             if 'maxmaps' in current:
@@ -2861,16 +3013,23 @@ class PUG(commands.Cog):
                     # Fall back to single-channel mode
                     channelId = info['pug']['activechannelid']
                     channel = discord.Client.get_channel(self.bot, channelId)
-                    log.info('Loaded active channel id: {0} => channel: {1}'.format(channelId, channel))
+                    log.info(f'Loaded active channel id: {channelId} => channel: {channel}')
                     if channel:
                         self.setActiveChannel(channel)
-                        pug = self.getPugForChannel(channelId)
+                        pug = self.getPugForChannel(channelId=channelId)
                         if 'current' in info['pug']:
                             current = info['pug']['current']
+                            modelimit = 0
+                            if 'mode' in current:
+                                pug = self.getPugForModeInChannel(channelId=channelId, mode=current['mode'], ignoreMissing=True)
+                                if pug is None:
+                                    pug = self.getPugForChannel(channelId=channelId)
+                                pug.modeLimit = modelimit
+                                pug.setMode(current['mode'],True) # TEST ME
+                            else:
+                                pug = self.getPugForChannel(channelId=channelId)
                             if 'modelimit' in current:
                                 pug.modeLimit = current['modelimit']
-                            if 'mode' in current:
-                                pug.setMode(current['mode'],True)
                             if 'playerlimit' in current:
                                 pug.setMaxPlayers(current['playerlimit'])
                             if 'maxmaps' in current:
@@ -2901,8 +3060,9 @@ class PUG(commands.Cog):
                     else:
                         log.warning('No active channel id found in config file.')
             else:
-                log.error('PUG: Config file could not be loaded: {0}'.format(configFile))
+                log.error(f'PUG: Config file could not be loaded: {configFile}')
             f.close()
+            self.configLoadTime = datetime.now().isoformat()
         return True
 
     def savePugConfig(self, configFile):
@@ -2914,6 +3074,10 @@ class PUG(commands.Cog):
                 info['pug']['activechannelid'] = self.activeChannel.id
             else:
                 info['pug']['activechannelid'] = 0
+            if 'playerprefs' not in info['pug']:
+                info['pug']['playerprefs'] = {}
+            if len(self.playerPreferences) > 0:
+                info['pug']['playerprefs'] = self.playerPreferences
             if self.utReporterChannel:
                 info['pug']['reporterchannelid'] = self.utReporterChannel.id
             else:
@@ -2945,7 +3109,7 @@ class PUG(commands.Cog):
                     
                 # Store under mode key
                 info['pug']['channels'][str(channelId)][mode] = pug_cfg
-            pug = self._getPugForChannel(self.activeChannel.id)
+            pug = self.getPugForChannel(self.activeChannel.id)
             if pug and pug.gameServer.utQueryConsoleWatermark > 0:
                 info['pug']['reporterconsolewatermark'] = pug.gameServer.utQueryConsoleWatermark
             else:
@@ -2959,14 +3123,16 @@ class PUG(commands.Cog):
     #########################################################################################
 
     def format_pick_next_player(self, mention: bool = False):
-        pug = self._getPugForChannel(self.activeChannel.id)
+        # FIX ME
+        pug = self.getPugForChannel(self.activeChannel.id)
         player = pug.currentCaptainToPickPlayer
-        return '{} to pick next player (**!pick <number>**)'.format(player.mention if mention else display_name(player))
+        return f'{player.mention if mention else display_name(player)} to pick next player (**!pick <number>**)'
 
     def format_pick_next_map(self, mention: bool = False):
-        pug = self._getPugForChannel(self.activeChannel.id)
+        # FIX ME
+        pug = self.getPugForChannel(self.activeChannel.id)
         player = pug.currentCaptainToPickMap
-        return '{} to pick next map (use **!map <number>** to pick and **!listmaps** to view available maps)'.format(player.mention if mention else display_name(player))
+        return f'{player.mention if mention else display_name(player)} to pick next map (use **!map <number>** to pick and **!listmaps** to view available maps)'
 
     #########################################################################################
     # Functions:
@@ -2974,12 +3140,12 @@ class PUG(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
-        pug = self._getPugForChannel(self.activeChannel.id)
+        pug = self.getPugForChannel(self.activeChannel.id)
         if type(error) is PugIsInProgress:
             # To handle messages returned when disabled commands are used when pug is already in progress.
             msg = ['A match is currently in progress.']
             if ctx.message.author in pug:
-                msg.append('{},  please, join the match or find a sub.'.format(ctx.message.author.mention))
+                msg.append(f'{ctx.message.author.mention},  please, join the match or find a sub.')
                 msg.append('If the match has just ended, please, wait at least 60 seconds for the pug to reset.')
             else:
                 msg.append('Pug will reset when it is finished; otherwise use !jq <mode> to join the queue for the next game.')
@@ -2998,23 +3164,23 @@ class PUG(commands.Cog):
         return False
     
     async def checkOnDemandServer(self, ctx):
-        pug = self._getPugForChannel(self.activeChannel.id)
+        pug = self.getPugForChannel(self.activeChannel.id)
         if pug.gameServer.gameServerState in ('N/A','N/AN/A') and pug.gameServer.gameServerOnDemand is True:
-            await ctx.send('Starting on-demand server: {0}...'.format(pug.gameServer.gameServerName))
+            await ctx.send(f'Starting on-demand server: {pug.gameServer.gameServerName}...')
             info = pug.gameServer.controlOnDemandServer('start')
             if (info):
-                log.info('On-demand server start {0} returned: {1}'.format(pug.gameServer.gameServerName,info['cloudManagementResponse']))
+                log.info(f'On-demand server start {pug.gameServer.gameServerName} returned: {info["cloudManagementResponse"]}')
                 return True
             else:
-                log.error('Failed to start on-demand server: {0}'.format(pug.gameServer.gameServerName))
-                await ctx.send('Failed to start on-demand server: {0}. Select another server before completing map selection.'.format(pug.gameServer.gameServerName))
+                log.error(f'Failed to start on-demand server: {pug.gameServer.gameServerName}')
+                await ctx.send(f'Failed to start on-demand server: {pug.gameServer.gameServerName}. Select another server before completing map selection.')
                 return False
         return True
 
     async def processPugStatus(self, ctx, pug=None):
         # Big function to test which stage of setup we're at:
         if pug == None:
-            pug = self._getPugForChannel(self.activeChannel.id)
+            pug = self.getPugForChannel(self.activeChannel.id)
 
         if not pug.playersFull:
             # Not filled, nothing to do.
@@ -3027,30 +3193,31 @@ class PUG(commands.Cog):
                 # Avoid repeating a setup when multiple conditions are true
                 return
             if pug.ranked:
-                msg = '\n'.join(['[**{0}**] Ranked mode map selection complete. Setting up match now.'.format(pug.mode),pug.maps.format_current_maplist])
+                msg = '\n'.join([f'[**{pug.mode}**] Ranked mode map selection complete. Setting up match now.',pug.maps.format_current_maplist])
                 pug.pugTempLocked = True
                 await ctx.send(msg)
             if pug.gameServer.gameServerOnDemand and not pug.gameServer.gameServerOnDemandReady:
-                await ctx.send('Waiting for {0} to be ready for action...'.format(self.parent.gameServer.gameServerName))
+                await ctx.send(f'Waiting for {self.parent.gameServer.gameServerName} to be ready for action...')
             if pug.setupPug():
                 await self.sendPasswordsToTeams(self.activeChannel.id, pug.mode)
-                await ctx.send('[**{0}**] {1}'.format(pug.mode, pug.format_match_is_ready))
+                await ctx.send(f'[**{pug.mode}**] {pug.format_match_is_ready}')
                 pug.gameServer.utQueryConsoleWatermark = pug.gameServer.format_new_watermark
                 pug.gameServer.utQueryData = {}
                 pug.gameServer.utQueryReporterActive = True
                 pug.gameServer.utQueryStatsActive = True
                 self.resetRequestRed = False # only need to reset this here because we only care about this when a match is in progress.
                 self.resetRequestBlue = False # only need to reset this here because we only care about this when a match is in progress.
-                await self.handleMultiInstanceConflicts(ctx, pug)
+                self.pushMultiInstancePlayers(self.activeChannel.id, pug.mode) # Move any players from other pugs in the same channel to temp storage while match is in progress
             else:
-                await ctx.send('[**{0}**] **PUG Setup Failed**. Use **!retry** to attempt setting up again with current configuration, or **!reset** to start again from the beginning.'.format(pug.mode))
+                await ctx.send(f'[**{pug.mode}**] **PUG Setup Failed**. Use **!retry** to attempt setting up again with current configuration, or **!reset** to start again from the beginning.')
             return
 
         if pug.teamsReady:
             # Need to pick maps.
             if (pug.ranked):
                 pug.maps.autoPickRankedMaps()
-                pug.ratings['maps']['maplist'] = pug.ratings['maps']['maplist']
+                if pug.maps.mapListWeighting is not None:
+                    pug.ratings['maps']['maplist'] = pug.maps.mapListWeighting
                 await self.processPugStatus(ctx, pug) # loop back around
             else:
                 await ctx.send(self.format_pick_next_map(mention=True))
@@ -3073,34 +3240,34 @@ class PUG(commands.Cog):
         
         if pug.numCaptains == 1:
             # Need second captain.
-            await ctx.send('[**{0}**] Waiting for 2nd captain. Type **!captain** to become a captain. To choose a random captain type **!randomcaptains**'.format(pug.mode))
+            await ctx.send(f'[**{pug.mode}**] Waiting for 2nd captain. Type **!captain** to become a captain. To choose a random captain type **!randomcaptains**')
             return
 
         if pug.playersReady:
             if pug.ranked:
                 # Logic is reversed, fill teams and then nominate random captains
                 costmsg = pug.makeRatedTeams()
-                msg = '\n'.join(['Ranked teams have been established:',pug.format_teams(),costmsg])
+                msg = '\n'.join([f'[**{pug.mode}**] Ranked teams have been established:',pug.format_teams(),costmsg])
                 await ctx.send(msg)
                 await self.checkOnDemandServer(ctx)
                 await self.processPugStatus(ctx, pug) # loop back around
                 return
             else:
                 # Need captains.
-                msg = ['**{}** has filled.'.format(pug.desc)]
+                msg = [f'**{pug.desc}** has filled.']
                 if len(pug) == 2 and pug.playersFull:
                     # Special case, 1v1: assign captains instantly, so jump straight to map picks.
                     pug.setCaptain(pug.players[0])
                     pug.setCaptain(pug.players[1])
-                    await ctx.send('[**{0}**] Teams have been automatically filled.\n{1}'.format(pug.mode, pug.format_teams(mention=True)))
-                    await ctx.send('{0}'.format(self.format_pick_next_map(mention=False)))
+                    await ctx.send(f'[**{pug.mode}**] Teams have been automatically filled.\n{pug.format_teams(mention=True)}')
+                    await ctx.send(f'{self.format_pick_next_map(mention=False)}')
                     # Check server state and fire a start-up command if needed
                     await self.checkOnDemandServer(ctx)
                     return
                 # Standard case, moving to captain selection.
                 msg.append(pug.format_pug(mention=True))
                 # Need first captain
-                msg.append('[**{0}**] Waiting for captains. Type **!captain** to become a captain. To choose random captains type **!randomcaptains**'.format(pug.mode))
+                msg.append(f'[**{pug.mode}**] Waiting for captains. Type **!captain** to become a captain. To choose random captains type **!randomcaptains**')
             await ctx.send('\n'.join(msg))
             return
 
@@ -3117,14 +3284,14 @@ class PUG(commands.Cog):
                 channel = self.activeChannel
             for player in pug.red:
                 try:
-                    await player.send('{0}\nJoin the server @ **{1}**'.format(msg_redPassword, msg_redServer))
+                    await player.send(f'{msg_redPassword}\nJoin the server @ **{msg_redServer}**')
                 except:
-                    await channel.send('Unable to send password to {} - are DMs enabled? Please ask your teammates for the red team password.'.format(player.mention))
+                    await channel.send(f'Unable to send password to {player.mention} - are DMs enabled? Please ask your teammates for the red team password.')
             for player in pug.blue:
                 try:
-                    await player.send('{0}\nJoin the server @ **{1}**'.format(msg_bluePassword, msg_blueServer))
+                    await player.send(f'{msg_bluePassword}\nJoin the server @ **{msg_blueServer}**')
                 except:
-                    await channel.send('Unable to send password to {} - are DMs enabled? Please ask your teammates for the blue team password.'.format(player.mention))
+                    await channel.send(f'Unable to send password to {player.mention} - are DMs enabled? Please ask your teammates for the blue team password.')
         if channel:
             await channel.send('Check private messages for server passwords.')
         return True
@@ -3132,7 +3299,7 @@ class PUG(commands.Cog):
     async def isPugInProgress(self, ctx, warn: bool=False):
         if not self.isActiveChannel(ctx):
             return False
-        pug = self._getPugForChannel(self.activeChannel.id)
+        pug = self.getPugForChannel(self.activeChannel.id)
         if warn and pug.pugLocked:
             log.warning('Raising PugIsInProgress')
             raise PugIsInProgress('Pug In Progress')
@@ -3140,7 +3307,7 @@ class PUG(commands.Cog):
     
     async def queryServerConsole(self):
         # Fetch watermark from previous messages
-        pug = self._getPugForChannel(self.activeChannel.id)
+        pug = self.getPugForChannel(self.activeChannel.id)
         consoleWatermark = pug.gameServer.utQueryConsoleWatermark
         reportToChannel = self.utReporterChannel
         # Fetch console log
@@ -3161,21 +3328,21 @@ class PUG(commands.Cog):
                             if 'message' in m and 'stamp' in m and int(m['stamp']) > pug.gameServer.utQueryConsoleWatermark:
                                 if 'type' in m and m['type'] == 'Say':
                                     for em in self.customStaticEmojis:
-                                        m['message']  = re.compile(em).sub('<{0}{1}>'.format(em,self.customStaticEmojis[em]), m['message'])
+                                        m['message']  = re.compile(em).sub(f'<{em}{self.customStaticEmojis[em]}>', m['message'])
                                     for em in self.customAnimatedEmojis:
-                                        m['message']  = re.compile(em).sub('<a{0}{1}>'.format(em,self.customAnimatedEmojis[em]), m['message'])
+                                        m['message']  = re.compile(em).sub(f'<a{em}{self.customAnimatedEmojis[em]}>', m['message'])
                                     if 'team' in m:
                                         if m['team'] == 'Spectator':
-                                            await reportToChannel.send('[{0}] {1} (*{2}*): {3}'.format(m['displaytime'],m['player'].strip(),m['team'],m['message'].strip()))
+                                            await reportToChannel.send(f'[{m["displaytime"]}] {m["player"].strip()} (*{m["team"]}*): {m["message"].strip()}')
                                         else:
-                                            await reportToChannel.send('[{0}] {1} (**{2}**): {3}'.format(m['displaytime'],m['player'].strip(),m['team'],m['message'].strip()))
+                                            await reportToChannel.send(f'[{m["displaytime"]}] {m["player"].strip()} (**{m["team"]}**): {m["message"].strip()}')
                                     else:
-                                        await reportToChannel.send('[{0}] {1}: {2}'.format(m['displaytime'],m['player'].strip(),m['message'].strip()))
+                                        await reportToChannel.send(f'[{m["displaytime"]}] {m["player"].strip()}: {m["message"].strip()}')
                                 else:
                                     if re.search('1\sminutes\suntil\sgame\sstart|conquered\sthe\sbase|defended\sthe\sbase',m['message'],re.IGNORECASE) is not None:
                                         bReportScoreLine = True
                                     if len(m['message'].strip()) > 0:
-                                        await reportToChannel.send('[{0}] {1}'.format(m['displaytime'],m['message'].strip()))
+                                        await reportToChannel.send(f'[{m["displaytime"]}] {m["message"].strip()}')
                                 consoleWatermark = int(m['stamp'])
                         except:
                             try:
@@ -3185,7 +3352,7 @@ class PUG(commands.Cog):
                             except:
                                 stamp = 0
                             if stamp > pug.gameServer.utQueryConsoleWatermark:
-                                await reportToChannel.send('{0}'.format(m[-(len(m)-18):]))
+                                await reportToChannel.send(f'{m[-(len(m)-18):]}')
                                 if re.search('1\sminutes\suntil\sgame\sstart|conquered\sthe\sbase|defended\sthe\sbase',m,re.IGNORECASE) is not None:
                                     bReportScoreLine = True
                             if stamp > 0:
@@ -3210,7 +3377,8 @@ class PUG(commands.Cog):
         return True
 
     async def queryServerStats(self, cacheonly: bool=False):
-        pug = self._getPugForChannel(self.activeChannel.id)
+        pug = self.getPugForChannel(self.activeChannel.id)
+        spacer = "\u2800"*3
         embedInfo = discord.Embed(color=discord.Color.greyple(),title=pug.gameServer.format_current_serveralias,description='Waiting for server info...')
         # Send "info" to get basic server details and confirm online
         if pug.gameServer.utQueryServer('info'):
@@ -3235,8 +3403,8 @@ class PUG(commands.Cog):
                         'PlayerCount': ''
                     }
                     for x in range(0,4):
-                        summary['PlayerList{0}'.format(x)] = '*(No players)*'
-                        summary['PlayerList{0}_data'.format(x)] = ''
+                        summary[f'PlayerList{x}'] = '*(No players)*'
+                        summary[f'PlayerList{x}_data'] = ''
                     summary['PlayerList255'] = '*(No Spectators)*'
                     summary['PlayerList255_data'] = ''
                     # Pick out generic UT info
@@ -3246,56 +3414,60 @@ class PUG(commands.Cog):
                         else:
                             summary['Title'] = summary['Hostname'] = queryData['hostname'].replace('| iAS | zp|','| zp-iAS |')
                     if 'mapname' in queryData:
-                        embedInfo.set_thumbnail(url='{0}{1}.jpg'.format(pug.gameServer.thumbnailServer,str(queryData['mapname']).lower()))
+                        embedInfo.set_thumbnail(url=f'{pug.gameServer.thumbnailServer}{str(queryData["mapname"]).lower()}.jpg')
                         summary['Map'] = queryData['mapname']
                     if 'remainingtime' in queryData:
-                        summary['RemainingTime'] = '{0}'.format(str(time.strftime('%M:%S',time.gmtime(int(queryData['remainingtime'])))))
+                        summary['RemainingTime'] = f'{str(time.strftime("%M:%S",time.gmtime(int(queryData["remainingtime"]))))}'
                     elif 'elapsedtime' in queryData:
-                        summary['ElapsedTime'] = '{0}'.format(str(time.strftime('%M:%S',time.gmtime(int(queryData['elapsedtime'])))))
+                        summary['ElapsedTime'] = f'{str(time.strftime("%M:%S",time.gmtime(int(queryData["elapsedtime"]))))}'
                     elif 'timelimit' in queryData and int(queryData['timelimit']) > 0:
-                        summary['TimeLimit'] = '{0}:00'.format(int(queryData['timelimit']))
+                        summary['TimeLimit'] = f'{int(queryData["timelimit"])}:00'
                     if 'maptitle' in queryData:
                         summary['Map'] = queryData['maptitle']
                     if 'numplayers' in queryData and 'maxplayers' in queryData:
-                        summary['PlayerCount'] = '{0}/{1}'.format(queryData['numplayers'],queryData['maxplayers'])
+                        summary['PlayerCount'] = f'{queryData["numplayers"]}/{queryData["maxplayers"]}'
                         if 'maxteams' in queryData and int(queryData['numplayers']) > 0:
                             for x in range(int(queryData['numplayers'])):
-                                if 'player_{0}'.format(x) in queryData:
+                                if f'player_{x}' in queryData:
                                     player = {}
-                                    player['Name'] = queryData['player_{0}'.format(x)].replace('`','').strip()
+                                    player['Name'] = queryData[f'player_{x}'].replace('`','').strip()
                                     if len(player['Name']) > 14:
-                                        player['Name'] = '{0}...'.format(player['Name'][:12]).strip()
+                                        player['Name'] = f'{player["Name"][:12]}...'.strip()
                                     player['Frags'] = '0'
-                                    if 'frags_{0}'.format(x) in queryData:
-                                        player['Frags'] = queryData['frags_{0}'.format(x)].strip()                                                                                        
+                                    if f'frags_{x}' in queryData:
+                                        player['Frags'] = queryData[f'frags_{x}'].strip()                                                                                        
                                     player['Ping'] = '0'
-                                    if 'ping_{0}'.format(x) in queryData:
-                                        player['Ping'] = queryData['ping_{0}'.format(x)].strip()
+                                    if f'ping_{x}' in queryData:
+                                        player['Ping'] = queryData[f'ping_{x}'].strip()
                                         if len(str(player['Ping'])) > 3:
                                             player['Ping'] = '---'
-                                    if 'team_{0}'.format(x) in queryData:
-                                        player['TeamId'] = queryData['team_{0}'.format(x)]
+                                    if f'team_{x}' in queryData:
+                                        player['TeamId'] = queryData[f'team_{x}']
+                                    team_id = player['TeamId']
+                                    player_list_key = f'PlayerList{team_id}_data'
                                     if player['TeamId'] == '255':
-                                        summary['PlayerList{0}_data'.format(player['TeamId'])] = '{0}\n{1}\t {2} {3}'.format(summary['PlayerList{0}_data'.format(player['TeamId'])],player['Name'].ljust(15),''.rjust(5),player['Ping'].rjust(4))
+                                        summary[player_list_key] = f'{summary[player_list_key]}\n{player["Name"].ljust(15)}{"".rjust(5)}{player["Ping"].rjust(4)}'
                                     else:
-                                        summary['PlayerList{0}_data'.format(player['TeamId'])] = '{0}\n{1}\t {2} {3}'.format(summary['PlayerList{0}_data'.format(player['TeamId'])],player['Name'].ljust(15),player['Frags'].rjust(5),player['Ping'].rjust(4))
+                                        summary[player_list_key] = f'{summary[player_list_key]}\n{player["Name"].ljust(15)}{player["Frags"].rjust(5)}{player["Ping"].rjust(4)}'
 
-                            for x in range(int(queryData['maxteams'])):
-                                if summary['PlayerList{0}_data'.format(x)] not in ['',None]:
-                                    summary['PlayerList{0}'.format(x)] = '```Player Name{0}\t Score Ping'.format('\u2800'*3)
-                                    summary['PlayerList{0}'.format(x)] = '{0}{1}\n```'.format(summary['PlayerList{0}'.format(x)],summary['PlayerList{0}_data'.format(x)])
+                                    for x in range(int(queryData['maxteams'])):
+                                        key = f'PlayerList{x}'
+                                        data_key = f'PlayerList{x}_data'
+                                        if summary[data_key] not in ['',None]:
+                                            summary[key] = f'```Player Name{spacer}\t Score Ping'
+                                            summary[key] = f'{summary[key]}{summary[data_key]}\n```'
                             
                             if summary['PlayerList255_data'] not in ['',None]:
-                                summary['PlayerList255'] = '```Name       {0}\t       Ping'.format('\u2800'*3)
-                                summary['PlayerList255'] = '{0}{1}\n```'.format(summary['PlayerList255'],summary['PlayerList255_data'])
+                                summary['PlayerList255'] = f'```Name       {spacer}\t       Ping'
+                                summary['PlayerList255'] = f'{summary["PlayerList255"]}{summary["PlayerList255_data"]}\n```'
 
                     # Set basic embed info
                     embedInfo.color = summary['Colour']
                     embedInfo.title = summary['Title']
-                    embedInfo.description = '```unreal://{0}:{1}```'.format(queryData['ip'],queryData['game_port'])
+                    embedInfo.description = f'```unreal://{queryData["ip"]}:{queryData["game_port"]}```'
 
-                    if 'password' in queryData and queryData['password'] == 'True' and self.pugInfo.gameServer.format_gameServerURL=='unreal://{0}:{1}'.format(queryData['ip'],queryData['game_port']):
-                        embedInfo.set_footer(text='Spectate @ {0}/?password={1}'.format(self.pugInfo.gameServer.format_gameServerURL,self.pugInfo.gameServer.spectatorPassword))
+                    if 'password' in queryData and queryData['password'] == 'True' and pug.gameServer.format_gameServerURL==f'unreal://{queryData["ip"]}:{queryData["game_port"]}':
+                        embedInfo.set_footer(text=f'Spectate @ {pug.gameServer.format_gameServerURL}/?password={pug.gameServer.spectatorPassword}')
 
                     # Pick out info for UTA-only games
                     if 'bmatchmode' in queryData and 'gametype' in queryData and queryData['gametype'] == 'Assault':
@@ -3312,12 +3484,12 @@ class PUG(commands.Cog):
                                 elif queryData['score_0'] < queryData['score_1']:
                                     summary['Colour'] = discord.Color.blurple()
                                 if 'teamnamered' in queryData and 'teamnameblue' in queryData:
-                                    summary['Title'] = '{0} | {1} {2} - {3} {4}'.format(self.pugInfo.desc,queryData['teamnamered'],queryData['score_0'],queryData['score_1'],queryData['teamnameblue'])
+                                    summary['Title'] = f'{pug.desc} | {queryData["teamnamered"]} {queryData["score_0"]} - {queryData["score_1"]} {queryData["teamnameblue"]}'
                                 else:
-                                    summary['Title'] = '{0} | RED {1} - {2} BLUE'.format(self.pugInfo.desc,queryData['score_0'],queryData['score_1'])
-                            summary['Hostname'] = '```unreal://{0}:{1}```'.format(queryData['ip'],queryData['game_port'])
+                                    summary['Title'] = f'{pug.desc} | RED {queryData["score_0"]} - {queryData["score_1"]} BLUE'
+                            summary['Hostname'] = f'```unreal://{queryData["ip"]}:{queryData["game_port"]}```'
                         elif 'AdminName' in queryData and queryData['AdminName'] in ['OPEN - PUBLIC','LOCKED - PRIVATE']:
-                            summary['Hostname'] = '```unreal://{0}:{1}```'.format(queryData['ip'],queryData['game_port'])
+                            summary['Hostname'] = f'```unreal://{queryData["ip"]}:{queryData["game_port"]}```'
                         # Build out round info
                         if 'bdefenseset' in queryData and 'currentdefender' in queryData:
                             if queryData['bdefenseset'] in ['true','True','1']:
@@ -3326,21 +3498,21 @@ class PUG(commands.Cog):
                                 summary['RoundStatus'] = '1/2'
                             if queryData['currentdefender'] == '1':
                                 if 'teamnamered' in queryData and queryData['AdminName'] not in ['OPEN - PUBLIC','LOCKED - PRIVATE']:
-                                    summary['RoundStatus'] = '{0}\tRound {1}; {2} attacking'.format(summary['Hostname'],summary['RoundStatus'],queryData['teamnamered'])
+                                    summary['RoundStatus'] = f'{summary["Hostname"]}\tRound {summary["RoundStatus"]}; {queryData["teamnamered"]} attacking'
                                 else:
-                                    summary['RoundStatus'] = '{0}\tRound {1}; {2} attacking'.format(summary['Hostname'],summary['RoundStatus'],'Red Team')
+                                    summary['RoundStatus'] = f'{summary["Hostname"]}\tRound {summary["RoundStatus"]}; Red Team attacking'
                             else:
                                 if 'teamnameblue' in queryData and queryData['AdminName'] not in ['OPEN - PUBLIC','LOCKED - PRIVATE']:
-                                    summary['RoundStatus'] = '{0}\tRound {1}; {2} attacking'.format(summary['Hostname'],summary['RoundStatus'],queryData['teamnameblue'])
+                                    summary['RoundStatus'] = f'{summary["Hostname"]}\tRound {summary["RoundStatus"]}; {queryData["teamnameblue"]} attacking'
                                 else:
-                                    summary['RoundStatus'] = '{0}\tRound {1}; {2} attacking'.format(summary['Hostname'],summary['RoundStatus'],'Blue Team')
+                                    summary['RoundStatus'] = f'{summary["Hostname"]}\tRound {summary["RoundStatus"]}; Blue Team attacking'
                         if 'fortcount' in queryData:
                             summary['Objectives'] = ''
                             for x in range(int(queryData['fortcount'])):
                                 if x == 0:
-                                    summary['Objectives'] = ' \t {0} - {1}'.format(str(queryData['fort_{0}'.format(x)]),str(queryData['fortstatus_{0}'.format(x)]))
+                                    summary['Objectives'] = f' \t {str(queryData[f"fort_{x}"])} - {str(queryData[f"fortstatus_{x}"])}'
                                 else:
-                                    summary['Objectives'] = '{0}\n \t {1} - {2}'.format(summary['Objectives'],str(queryData['fort_{0}'.format(x)]),str(queryData['fortstatus_{0}'.format(x)]))
+                                    summary['Objectives'] = f'{summary["Objectives"]}\n \t {str(queryData[f"fort_{x}"])} - {str(queryData[f"fortstatus_{x}"])}'
                         # Build out embed card with UTA enhanced information
                         embedInfo.color = summary['Colour']
                         embedInfo.title = summary['Title']
@@ -3383,7 +3555,7 @@ class PUG(commands.Cog):
             # Server offline
             embedInfo.color = discord.Color.darker_gray()
             if pug.gameServer.gameServerOnDemand is True:
-                embedInfo.description = '```{0}```\nOn-demand server is currently offline. Start a !pug to use this server.'.format(pug.gameServer.format_gameServerURL)
+                embedInfo.description = f'```{pug.gameServer.format_gameServerURL}```\nOn-demand server is currently offline. Start a !pug to use this server.'
                 pug.gameServer.utQueryEmbedCache = embedInfo.to_dict()
             else:
                 pug.gameServer.utQueryEmbedCache = {} # fall back to old method
@@ -3393,20 +3565,42 @@ class PUG(commands.Cog):
         if self.activeChannel is not None:
             for x in self.activeChannel.guild.emojis:
                 if x.animated:
-                    self.customAnimatedEmojis[':{0}:'.format(x.name)] = x.id
+                    self.customAnimatedEmojis[f':{x.name}:'] = x.id
                 else:
-                    self.customStaticEmojis[':{0}:'.format(x.name)] = x.id
+                    self.customStaticEmojis[f':{x.name}:'] = x.id
+
+    def setPlayerPreferences(self, player: int, mode: str = '', maps: str = '', save: bool = False):
+        if self.configLoadTime == 0:
+            # Config not loaded yet, can't set preferences.
+            return False
+        if player not in self.playerPreferences:
+            self.playerPreferences[player] = {
+                'mode': '',
+                'maps': []
+            }
+        self.playerPreferences[player]['mode'] = ''
+        if (len(mode) > 0) and mode.upper() in map(str.upper, MODE_CONFIG):
+            mode = next((key for key, _ in MODE_CONFIG.items() if key.upper()==mode.upper()), None)
+            self.playerPreferences[player]['mode'] = mode
+        if len(maps) > 0:
+            self.playerPreferences[player]['maps'] = [] # maps.split(',') # FIX ME - need to validate map names here and handle map aliases, but this is a start
+        else:
+            self.playerPreferences[player]['maps'] = []
+        if save:
+            self.savePugConfig(self.configFile)
+        return True
 
     def ratingsMatchInfo(self, mode, matchCode: str = ''):
         matchInfo = {}
-        if self.pugInfo.pugLocked != True:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if self.ratingsLock != True: # FIX ME
+        #    self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
+            pass
+        rkData = self.loadPugRatings(self.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                    if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
-                        x = self.pugInfo.ratings # stamp cached ratings back
+                    #if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
+                    #    x = self.pugInfo.ratings # stamp cached ratings back # FIX ME
                     if 'games' in x:
                         if matchCode == 'last':
                             matchInfo = sorted(x['games'], key=lambda g: datetime.fromisoformat(g['startdate']), reverse=True)[0]
@@ -3417,41 +3611,44 @@ class PUG(commands.Cog):
         return matchInfo
     
     def ratingsMatchReport(self, mode, teamRed: list = [], teamBlue: list = [], matchref: str = '', playerid: int = 0):
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
         cards = []
-        embedInfo = discord.Embed(color=discord.Color.greyple(),title='Ranked mode {0} match report'.format(mode),description='')
+        embedInfo = discord.Embed(color=discord.Color.greyple(),title=f'Ranked mode {mode} match report',description='')
         if len(matchref) == 0 and playerid == 0:
-            if len(self.pugInfo.gameServer.matchCode):
-                matchref = self.pugInfo.gameServer.matchCode
-            elif len(self.pugInfo.gameServer.lastMatchCode):
-                matchref = self.pugInfo.gameServer.lastMatchCode
+            if len(pug.gameServer.matchCode):
+                matchref = pug.gameServer.matchCode
+            elif len(pug.gameServer.lastMatchCode):
+                matchref = pug.gameServer.lastMatchCode
         if len(matchref) > 0:
-            embedInfo.description = 'Match reference: `{0}`'.format(matchref)
+            embedInfo.description = f'Match reference: `{matchref}`'
             matchInfo = self.ratingsMatchInfo(mode,matchref)
             if matchInfo == {}:
                 embedInfo.title = 'Match not found'
                 return embedInfo
             else:
                 matchref = matchInfo['gameref']
-                embedInfo.description = 'Match reference: `{0}` ([stats]({1}{2}{3}))'.format(matchref,DEFAULT_POST_SERVER,'/pugstats/index.php?p=uta_match&matchcode=',matchref)
+                embedInfo.description = f'Match reference: `{matchref}` ([stats]({DEFAULT_POST_SERVER}/pugstats/index.php?p=uta_match&matchcode={matchref}))'
                 started = datetime.fromisoformat(matchInfo['startdate'])
                 embedInfo.add_field(name='Match started',value=started.strftime('%d/%b/%Y @ %H:%M'),inline=True)
                 if matchInfo['completed']:
                     ended = datetime.fromisoformat(matchInfo['enddate'])
                     embedInfo.add_field(name='Match ended',value=ended.strftime('%d/%b/%Y @ %H:%M'),inline=True)
-                    embedInfo.add_field(name='Duration',value='{0} mins'.format(getDuration(started,ended,'minutes')),inline=True)
+                    embedInfo.add_field(name='Duration',value=f'{getDuration(started,ended,"minutes")} mins',inline=True)
                     embedInfo.color = discord.Color.brand_green()
                 else:
                     embedInfo.add_field(name='Status',value='Incomplete / Void',inline=True)
                 embedInfo.add_field(name="Map list",value=PLASEP.join(matchInfo['maplist']),inline=False)
-                embedInfo.add_field(name="Team Power",value='Red {0} - {1} Blue'.format(matchInfo['rpred'],matchInfo['rpblue']))
-                embedInfo.add_field(name="Score",value='Red {0} - {1} Blue'.format(matchInfo['scorered'],matchInfo['scoreblue']))
+                embedInfo.add_field(name="Team Power",value=f'Red {matchInfo["rpred"]} - {matchInfo["rpblue"]} Blue')
+                embedInfo.add_field(name="Score",value=f'Red {matchInfo["scorered"]} - {matchInfo["scoreblue"]} Blue')
             cards.append(embedInfo)
             if 'teamred' in matchInfo:
                 teamRed = matchInfo['teamred']
             if 'teamblue' in matchInfo:
                 teamBlue = matchInfo['teamblue']
         if len(teamRed) > 0:
-            embedInfo = discord.Embed(color=discord.Color.red(),title='Team Red player ratings '.format(GRAPHUP),description='')
+            embedInfo = discord.Embed(color=discord.Color.red(),title=f'Team Red player ratings {GRAPHUP}',description='')
             if matchInfo['scorered'] < matchInfo['scoreblue']:
                 embedInfo.title = embedInfo.title+GRAPHDN
             elif matchInfo['scorered'] > matchInfo['scoreblue']:
@@ -3460,14 +3657,14 @@ class PUG(commands.Cog):
                 embedInfo.title = embedInfo.title
             report = self.ratingsPlayerReport(mode=mode,players=teamRed,matchref=matchref)
             if 'cap_name' in report and report['cap_name'] not in [None,'']:
-                embedInfo.add_field(name='Captain',value='{0}'.format(report['cap_name']),inline=True)
-                embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
+                embedInfo.add_field(name='Captain',value=f'{report["cap_name"]}',inline=True)
+                embedInfo.add_field(name='Power',value=f'{report["cap_rp"]}',inline=True)
                 embedInfo.description = ''
             if 'players' in report and report['players'] not in [None,'']:
                 #embedInfo.add_field(name="\u200B", value="\u200B")
                 #embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
                 #embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
-                embedInfo.add_field(name='Player ratings',value='{0}'.format(report['players_sum']),inline=False)
+                embedInfo.add_field(name='Player ratings',value=f'{report["players_sum"]}',inline=False)
                 embedInfo.description = ''
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
@@ -3481,14 +3678,14 @@ class PUG(commands.Cog):
                 embedInfo.title = embedInfo.title
             report = self.ratingsPlayerReport(mode=mode,players=teamBlue,matchref=matchref)
             if 'cap_name' in report and report['cap_name'] not in [None,'']:
-                embedInfo.add_field(name='Captain',value='{0}'.format(report['cap_name']),inline=True)
-                embedInfo.add_field(name='Power',value='{0}'.format(report['cap_rp']),inline=True)
+                embedInfo.add_field(name='Captain',value=f'{report["cap_name"]}',inline=True)
+                embedInfo.add_field(name='Power',value=f'{report["cap_rp"]}',inline=True)
                 embedInfo.description = ''
             if 'players' in report and report['players'] not in [None,'']:
                 #embedInfo.add_field(name="\u200B", value="\u200B")
                 #embedInfo.add_field(name='Players',value='{0}'.format(report['players']),inline=True)
                 #embedInfo.add_field(name='Power',value='{0}'.format(report['players_rp']),inline=True)
-                embedInfo.add_field(name='Player ratings',value='{0}'.format(report['players_sum']),inline=False)
+                embedInfo.add_field(name='Player ratings',value=f'{report["players_sum"]}',inline=False)
                 embedInfo.description = ''
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
@@ -3496,10 +3693,10 @@ class PUG(commands.Cog):
             embedInfo = discord.Embed(color=discord.Color.greyple(),title='Player rating history',description='Data not found')
             report = self.ratingsPlayerReport(mode=mode,playerid=playerid)
             if 'player_name' in report and report['player_name'] not in [None,'']:
-                embedInfo.description = 'Ratings history for {0}'.format(report['player_name'])
-                embedInfo.add_field(name='Last game',value='{0}'.format(report['player_last']),inline=False)
+                embedInfo.description = f'Ratings history for {report["player_name"]}'
+                embedInfo.add_field(name='Last game',value=f'{report["player_last"]}',inline=False)
                 if len(report['player_hist']):
-                    embedInfo.add_field(name='Previous {0} game(s)'.format(report['player_hist_count']),value='{0}'.format(report['player_hist']),inline=False)
+                    embedInfo.add_field(name=f'Previous {report["player_hist_count"]} game(s)',value=f'{report["player_hist"]}',inline=False)
             if embedInfo.description != 'Data not found':
                 cards.append(embedInfo)
         return cards
@@ -3518,11 +3715,11 @@ class PUG(commands.Cog):
         if len(players) > 0:
             cap = self.ratingsPlayerDataHandler('rkget', mode, players[0])
             if cap['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
-                capSummary = 'RP: {0} {2} Previous RP: {1}'.format(cap['ratingvalue'],cap['ratingprevious'],updn(cap['ratingvalue'],cap['ratingprevious']))
+                capSummary = f'RP: {cap["ratingvalue"]} {updn(cap["ratingvalue"],cap["ratingprevious"])} Previous RP: {cap["ratingprevious"]}'
             else:
                 for h in cap['ratinghistory']:
                     if h['matchref'].upper() == matchref.upper() or len(matchref) == 0:
-                        capSummary = 'RP before: {0} {2} RP after: {1}; Current RP: {3}'.format(h['ratingbefore'],h['ratingafter'],updn(h['ratingafter'],h['ratingbefore']),cap['ratingvalue'])
+                        capSummary = f'RP before: {h["ratingbefore"]} {updn(h["ratingafter"],h["ratingbefore"])} RP after: {h["ratingafter"]}; Current RP: {cap["ratingvalue"]}'
             report['cap_name'] = cap['dlastnick']
             report['cap_rp'] = capSummary
         elif playerid > 0:
@@ -3532,9 +3729,9 @@ class PUG(commands.Cog):
                 g_startdate = datetime.fromisoformat(player['lastgamedate']).strftime('%d/%b/%Y @ %H:%M')
                 if player['lastgameref'] == 'admin-set':
                     if player['ratingprevious'] == 0:
-                        pSummary = 'Admin seeded rating of **{0}** on {1}\n'.format(player['ratingvalue'],g_startdate)
+                        pSummary = f'Admin seeded rating of **{player["ratingvalue"]}** on {g_startdate}\n'
                     else:
-                        pSummary = 'Admin set rating on {0}: RP before: **{1}** {2} RP after: **{3}**\n'.format(g_startdate,player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
+                        pSummary = f'Admin set rating on {g_startdate}: RP before: **{player["ratingprevious"]}** {updn(player["ratingvalue"],player["ratingprevious"])} RP after: **{player["ratingvalue"]}**\n'
                 else:
                     matchInfo = self.ratingsMatchInfo(mode, player['lastgameref'])
                     if matchInfo != {}:
@@ -3545,14 +3742,14 @@ class PUG(commands.Cog):
                         if matchInfo['capred']['id'] == playerid or matchInfo['capblue']['id'] == playerid:
                             pteam = pteam+', captain'
                         if (matchInfo['completed']):
-                            pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Score: Red {3} - {4} Blue;\n> RP before: **{5}** {6} RP after: **{7}**\n'.format(player['lastgameref'],g_startdate,pteam,matchInfo['scorered'],matchInfo['scoreblue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
+                            pSummary = f'Match: `{player["lastgameref"]}` @ {g_startdate}\n> Team: {pteam}\n> Score: Red {matchInfo["scorered"]} - {matchInfo["scoreblue"]} Blue;\n> RP before: **{player["ratingprevious"]}** {updn(player["ratingvalue"],player["ratingprevious"])} RP after: **{player["ratingvalue"]}**\n'
                         else:
-                            pSummary = 'Match: `{0}` @ {1}\n> Team: {2}\n> Status: Incomplete / voided match\n'.format(player['lastgameref'],g_startdate,pteam)
+                            pSummary = f'Match: `{player["lastgameref"]}` @ {g_startdate}\n> Team: {pteam}\n> Status: Incomplete / voided match\n'
                     else:
-                        pSummary = 'Match: `{0}` @ {1}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(player['lastgameref'],g_startdate,player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']),player['ratingvalue'])
+                        pSummary = f'Match: `{player["lastgameref"]}` @ {g_startdate}\n> RP before: **{player["ratingprevious"]}** {updn(player["ratingvalue"],player["ratingprevious"])} RP after: **{player["ratingvalue"]}**\n'
             else:
                 g_startdate = datetime.fromisoformat(player['ratingdate']).strftime('%d/%b/%Y')
-                pSummary = 'Seed rating, set on {0}: **{1}**\n'.format(g_startdate,player['ratingvalue'])
+                pSummary = f'Seed rating, set on {g_startdate}: **{player["ratingvalue"]}**\n'
             report['player_last'] = pSummary
             pSummary = ''
             if 'ratinghistory' in player:
@@ -3563,9 +3760,9 @@ class PUG(commands.Cog):
                         g_startdate = datetime.fromisoformat(h['matchdate']).strftime('%d/%b/%Y @ %H:%M')
                         if h['matchref'] == 'admin-set':
                             if h['ratingbefore'] == 0:
-                                pSummary = pSummary+'Admin seeded rating of **{0}** on {1}\n'.format(h['ratingafter'],g_startdate)
+                                pSummary = f'{pSummary}Admin seeded rating of **{h["ratingafter"]}** on {g_startdate}\n'
                             else:
-                                pSummary = pSummary+'Admin set rating on {0}\n> RP before: **{1}** {2} RP after: **{3}**\n'.format(g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+                                pSummary = f'{pSummary}Admin set rating on {g_startdate}\n> RP before: **{h["ratingbefore"]}** {updn(h["ratingafter"],h["ratingbefore"])} RP after: **{h["ratingafter"]}**\n'
                         else:
                             matchInfo = self.ratingsMatchInfo(mode, h['matchref'])
                             if matchInfo != {}:
@@ -3574,11 +3771,11 @@ class PUG(commands.Cog):
                                 else:
                                     pteam = 'Blue'
                                 if (matchInfo['completed']):
-                                    pSummary = pSummary+'Match: `{0}` @ {1}\n> Team: {2}\n> Score: Red {3} - {4} Blue\n> RP before: **{5}** {6} RP after: **{7}**\n'.format(h['matchref'],g_startdate,pteam,matchInfo['scorered'],matchInfo['scoreblue'],h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+                                    pSummary = f'{pSummary}Match: `{h["matchref"]}` @ {g_startdate}\n> Team: {pteam}\n> Score: Red {matchInfo["scorered"]} - {matchInfo["scoreblue"]} Blue\n> RP before: **{h["ratingbefore"]}** {updn(h["ratingafter"],h["ratingbefore"])} RP after: **{h["ratingafter"]}**\n'
                                 else:
-                                    pSummary = pSummary+'Match: `{0}` @ {1}\n> Team: {2}\n> Status: Incomplete / voided match\n'.format(h['matchref'],g_startdate,pteam)
+                                    pSummary = f'{pSummary}Match: `{h["matchref"]}` @ {g_startdate}\n> Team: {pteam}\n> Status: Incomplete / voided match\n'
                             else:
-                                pSummary = pSummary+'Match: `{0}` @ {1}\n> RP before: **{2}** {3} RP after: **{4}**\n'.format(h['matchref'],g_startdate,h['ratingbefore'],updn(h['ratingafter'],h['ratingbefore']),h['ratingafter'])
+                                pSummary = f'{pSummary}Match: `{h["matchref"]}` @ {g_startdate}\n> RP before: **{h["ratingbefore"]}** {updn(h["ratingafter"],h["ratingbefore"])} RP after: **{h["ratingafter"]}**\n'
                         i += 1
             report['player_hist'] = pSummary
             report['player_hist_count'] = i
@@ -3588,32 +3785,33 @@ class PUG(commands.Cog):
                 report['players'] = report['players']+player['dlastnick']+'\n'
                 report['players_sum'] = report['players_sum']+'**'+player['dlastnick']+'**\n> '
                 if player['lastgameref'].upper() == matchref.upper() or len(matchref) == 0:
-                    pSummary = 'RP: {0} {2} Previous RP: {1}\n'.format(player['ratingvalue'],player['ratingprevious'],updn(player['ratingvalue'],player['ratingprevious']))
+                    pSummary = f'RP: {player["ratingvalue"]} {updn(player["ratingvalue"],player["ratingprevious"])} Previous RP: {player["ratingprevious"]}\n'
                     report['players_rp'] = report['players_rp']+pSummary
                     report['players_sum'] = report['players_sum']+pSummary
                 else:
                     for h in player['ratinghistory']:
                         if h['matchref'].upper() == matchref.upper() or len(matchref) == 0:
-                            pSummary = 'RP before: {0} {2} RP after: {1}; Current RP: {3}\n'.format(h['ratingbefore'],h['ratingafter'],updn(h['ratingafter'],h['ratingbefore']),player['ratingvalue'])
+                            pSummary = f'RP before: {h["ratingbefore"]} {updn(h["ratingafter"],h["ratingbefore"])} RP after: {h["ratingafter"]}; Current RP: {player["ratingvalue"]}\n'
                             report['players_rp'] = report['players_rp']+pSummary
                             report['players_sum'] = report['players_sum']+pSummary
         return report
     
     def ratingsPlayerDataHandler(self, action, mode, player, rating: int = 0, toggle: bool = False, additionalid: int = 0):
         log.debug('ratingsPlayerDataHandler() reloading data from JSON file')
-        if self.pugInfo.pugLocked != True:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if self.ratingsLock != True:
+            self.savePugRatings(self.ratingsFile)
+        rkData = self.loadPugRatings(self.ratingsFile, True)
         rkReload = False
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' not in x:
                     rkReload = True
-                elif 'mode' in x and self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper() and self.pugInfo.ratings not in [None,'']:
-                    x = self.pugInfo.ratings # stamp cached ratings back
+                elif pug is not None and 'mode' in x and pug.ranked and pug.mode.upper() == mode.upper() and pug.ratings not in [None,'']:
+                    x = pug.ratings # stamp cached ratings back
         if rkReload:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            self.savePugRatings(self.ratingsFile)
+            rkData = self.loadPugRatings(self.ratingsFile, True)
         if type(player) is int:
             pid = player
             pdn = ''
@@ -3630,7 +3828,7 @@ class PUG(commands.Cog):
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode'] # update formatting
                     if action == 'rkget' or action == 'rkrecalc':
-                        msg = 'Error - Player not registered for ranked games in {0}'.format(mode)
+                        msg = f'Error - Player not registered for ranked games in {mode}'
                         if pid in x['registrations'] or pid < 0:
                             for r in x['ratings']:
                                 if r['did'] == pid or (pid < 0 and 'dlastnick' in r and str(r['dlastnick']).lower() == pdn.lower()):
@@ -3640,7 +3838,7 @@ class PUG(commands.Cog):
                                         if pid < 0: 
                                             pid = r['did']
                                         admsets = []
-                                        log.debug('ratingsPlayerDataHandler(rkrecalc) - Recalculating rank for {0}'.format(r['dlastnick']))
+                                        log.debug(f'ratingsPlayerDataHandler(rkrecalc) - Recalculating rank for {r["dlastnick"]}')
                                         if rating == 0:
                                             # Find seed rating
                                             if r['ratingprevious'] == 0:
@@ -3665,8 +3863,8 @@ class PUG(commands.Cog):
                                                 'ratingafter': r['ratingvalue']
                                             })
                                         if rating == 0:
-                                            return 'Initial seed rating could not be found for {0}, please provide a seed rating.'.format(r['dlastnick'])
-                                        log.debug('ratingsPlayerDataHandler({0}) - Seed rating for {1} = {2}'.format(mode,r['dlastnick'],rating))
+                                            return f'Initial seed rating could not be found for {r["dlastnick"]}, please provide a seed rating.'
+                                        log.debug(f'ratingsPlayerDataHandler({mode}) - Seed rating for {r["dlastnick"]} = {rating}')
                                         r['ratinghistory'] = admsets # Reset player rating history to admin-set only
                                         msg = ''
                                         r['ratingdate'] = rating_date
@@ -3678,19 +3876,19 @@ class PUG(commands.Cog):
                                             if pid in m['teamred'] or pid in m['teamblue']:
                                                 if len(msg) == 0:
                                                     g_date = datetime.fromisoformat(rating_date).strftime('%d/%b/%Y @ %H:%M')
-                                                    msg = 'RP recalculated for {0}:\n> Seed rating on {1}: **{2}**\n'.format(r['dlastnick'],g_date,rating)
+                                                    msg = f'RP recalculated for {r["dlastnick"]}:\n> Seed rating on {g_date}: **{rating}**\n'
                                                 if m['completed']:
                                                     # Determine whether rating has been adjusted before sending to recalc
                                                     for aset in admsets:
                                                         if len(r['lastgamedate']) == 0:
                                                             r['lastgamedate'] = r['ratingdate']
                                                         if datetime.fromisoformat(aset['matchdate']) > datetime.fromisoformat(r['lastgamedate']) and datetime.fromisoformat(m['startdate']) > datetime.fromisoformat(aset['matchdate']):
-                                                            log.debug('ratingsPlayerDataHandler({0}) - admin adjusted rating present between matches (last game: {1}; update date: {2}; next match started: {3}). Adjusting seed for {4} to {5} without adjusting history'.format(mode,r['lastgamedate'],aset['matchdate'],m['startdate'],r['dlastnick'],aset['ratingafter']))
+                                                            log.debug(f'ratingsPlayerDataHandler({mode}) - admin adjusted rating present between matches (last game: {r["lastgamedate"]}; update date: {aset["matchdate"]}; next match started: {m["startdate"]}). Adjusting seed for {r["dlastnick"]} to {aset["ratingafter"]} without adjusting history')
                                                             r['ratingdate'] = aset['matchdate']
                                                             r['ratingprevious'] = r['ratingvalue']
                                                             r['ratingvalue'] = aset['ratingafter']
                                                             g_date = datetime.fromisoformat(aset['matchdate']).strftime('%d/%b/%Y %H:%M')
-                                                            msg = msg+'> Admin updated @ {0}: RP before: **{1}**; RP after: **{2}**\n'.format(g_date,r['ratingprevious'],r['ratingvalue'])
+                                                            msg = f'{msg}> Admin updated @ {g_date}: RP before: **{r["ratingprevious"]}**; RP after: **{r["ratingvalue"]}**\n'
                                                     if pid in m['teamred']:
                                                         pteam = 'Red'
                                                     else:
@@ -3699,17 +3897,20 @@ class PUG(commands.Cog):
                                                         pteam = pteam+', captain'
                                                     g_last = datetime.fromisoformat(m['startdate'])
                                                     g_date = g_last.strftime('%d/%b/%Y %H:%M')
-                                                    log.debug('ratingsPlayerDataHandler({0}) - {1} present in match {2} - calculating RP'.format(mode,r['dlastnick'],m['gameref']))
-                                                    rk = self.pugInfo.applyRankedScoring(x, mode=mode, match=m, player=pid)
-                                                    if 'lastgameref' in rk and 'ratingprevious' in rk:
-                                                        log.debug('ratingsPlayerDataHandler({0}) - Updated player data from applyRankedScoring() for match: {1} = {2}; RP before: {3}, RP after: {4}'.format(mode,m['gameref'],rk['lastgameref'],rk['ratingprevious'],rk['ratingvalue']))
+                                                    log.debug(f'ratingsPlayerDataHandler({mode}) - {r["dlastnick"]} present in match {m["gameref"]} - calculating RP')
+                                                    if pug is not None:
+                                                        rk = pug.applyRankedScoring(x, mode=mode, match=m, player=pid)
+                                                        if 'lastgameref' in rk and 'ratingprevious' in rk:
+                                                            log.debug(f'ratingsPlayerDataHandler({mode}) - Updated player data from applyRankedScoring() for match: {m["gameref"]} = {rk["lastgameref"]}; RP before: {rk["ratingprevious"]}, RP after: {rk["ratingvalue"]}')
+                                                        else:
+                                                            log.debug(f'ratingsPlayerDataHandler({mode}) - Updated player data from applyRankedScoring() for match: {m["gameref"]} = (unknown). rk = {str(rk)}')
+                                                        if 'did' in rk and rk['did'] == pid:
+                                                            r = rk
+                                                        msg = f'{msg}> Match: `{r["lastgameref"]}` @ {g_date} (team {pteam}); Score: Red {m["scorered"]} - {m["scoreblue"]} Blue. RP before: **{r["ratingprevious"]}**; RP after: **{r["ratingvalue"]}**\n'
                                                     else:
-                                                        log.debug('ratingsPlayerDataHandler({0}) - Updated player data from applyRankedScoring() for match: {1} = (unknown). rk = {2}'.format(mode,m['gameref'],str(rk)))
-                                                    if 'did' in rk and rk['did'] == pid:
-                                                        r = rk
-                                                    msg = msg+'> Match: `{0}` @ {1} (team {2}); Score: Red {3} - {4} Blue. RP before: **{5}**; RP after: **{6}**\n'.format(r['lastgameref'],g_date,pteam,m['scorered'],m['scoreblue'],r['ratingprevious'],r['ratingvalue'])
+                                                        msg = f'{msg}> Failed to apply ranked update for match `{m["gameref"]}`. PUG could not be found.'
                                                 else:
-                                                    log.debug('ratingsPlayerDataHandler({0}) - {1} present in voided/incomplete match {2} - ignoring RP. Last completed game: {3} on {4}'.format(mode,r['dlastnick'],m['gameref'],r['lastgameref'],r['lastgamedate']))
+                                                    log.debug(f'ratingsPlayerDataHandler({mode}) - {r["dlastnick"]} present in voided/incomplete match {m["gameref"]} - ignoring RP. Last completed game: {r["lastgameref"]} on {r["lastgamedate"]}')
                                         if len(r['ratinghistory']):
                                             r['ratinghistory'] = sorted(r['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate'])) 
                                             r['ratinghistory'] = r['ratinghistory'][:-1]
@@ -3726,7 +3927,7 @@ class PUG(commands.Cog):
                                                     r['lastgamedate'] = aset['matchdate']
                                                     r['ratingprevious'] = r['ratingvalue']
                                                     r['ratingvalue'] = aset['ratingafter']
-                                                    msg = msg+'> Admin updated @ {0}: RP before: **{1}**; RP after: **{2}**\n'.format(g_date,r['ratingprevious'],r['ratingvalue'])
+                                                    msg = f'{msg}> Admin updated @ {g_date}: RP before: **{r["ratingprevious"]}**; RP after: **{r["ratingvalue"]}**\n'
                                                     g_last = datetime.fromisoformat(aset['matchdate'])
                                         if len(r['ratinghistory']):
                                             r['ratinghistory'] = sorted(r['ratinghistory'], key=lambda g: datetime.fromisoformat(g['matchdate']))
@@ -3738,11 +3939,11 @@ class PUG(commands.Cog):
                     elif action == 'rkset':
                         if pid > -1 and pid not in x['registrations']:
                             x['registrations'].append(pid) # register player as eligible
-                            log.debug('{0}({1},{2},{3},{4}) - registering new pid for {5}.'.format(action,pid,mode,rating,toggle,pdn))
+                            log.debug(f'{action}({pid},{mode},{rating},{toggle}) - registering new pid for {pdn}.')
                         rkUpdate = False
                         for r in x['ratings']:
                             if r['did'] == pid:
-                                log.debug('{0}({1},{2},{3},{4}) - updating existing rank data for {5}.'.format(action,pid,mode,rating,toggle,pdn))
+                                log.debug(f'{action}({pid},{mode},{rating},{toggle}) - updating existing rank data for {pdn}.')
                                 if len(pdn):
                                     r['dlastnick'] = pdn
                                 if (additionalid > 0 or 'externalpid' not in r):
@@ -3771,7 +3972,7 @@ class PUG(commands.Cog):
                                 r['lastgameref'] = 'admin-set'
                                 rkUpdate = True
                         if rkUpdate == False and pid > -1: # new entry required
-                            log.debug('{0}({1},{2},{3},{4}) - adding new rank data for {5}.'.format(action,pid,mode,rating,toggle,pdn))
+                            log.debug(f'{action}({pid},{mode},{rating},{toggle}) - adding new rank data for {pdn}.')
                             x['ratings'].append({
                                 'did': pid,
                                 'dlastnick': pdn,
@@ -3785,11 +3986,11 @@ class PUG(commands.Cog):
                             })
                             # Message player with registration details
                             if dplayer != None and additionalid < 1:
-                                dplayer.send('Welcome. You have been registered for ranked play in {0}.\n\nYour UTA account could not be automatically reconciled, please link your Discord ID with your UTA account, or register a new UTA account at {1} to continue.'.format(mode,DEFAULT_ACCOUNT_URL))
+                                dplayer.send(f'Welcome. You have been registered for ranked play in {mode}.\n\nYour UTA account could not be automatically reconciled, please link your Discord ID with your UTA account, or register a new UTA account at {DEFAULT_ACCOUNT_URL} to continue.')
                         if pid > -1:
-                            msg = 'Rank configured with a rating of {0} for {1} (id:{2}) in game mode {3}'.format(rating,pdn,pid,mode)
+                            msg = f'Rank configured with a rating of {rating} for {pdn} (id:{pid}) in game mode {mode}'
                         else:
-                            msg = 'Player ID could not be established for {0}'.format(pdn)
+                            msg = f'Player ID could not be established for {pdn}'
                     elif action == 'rkdel':
                         if pid in x['registrations']:
                             x['registrations'].remove(pid)
@@ -3797,16 +3998,16 @@ class PUG(commands.Cog):
                             if r['did'] == pid:
                                 x['ratings'].remove(r)
                         if pid > -1:
-                            msg = 'Ranked player rating removed for {0} (id:{1}) in game mode {2}'.format(pdn,pid,mode)
+                            msg = f'Ranked player rating removed for {pdn} (id:{pid}) in game mode {mode}'
                         else:
-                            msg = 'Player ID could not be established for {0}'.format(pdn)
+                            msg = f'Player ID could not be established for {pdn}'
                     else:
                         msg = 'Unsupported action called.'
-        if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-            log.debug('ratingsPlayerDataHandler({0}) - saved updated ratings'.format(mode))
-            if (self.pugInfo.ranked): # reload data for current ranked mode
-                self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
-                log.debug('ratingsPlayerDataHandler({0}) - loaded ratings back into memory'.format(mode))
+        if self.savePugRatings(self.pugInfo.ratingsFile, rkData):
+            log.debug(f'ratingsPlayerDataHandler({mode}) - saved updated ratings')
+            if (pug is not None and pug.ranked): # reload data for current ranked mode
+                pug.setRankedMode(pug.ranked, True)
+                log.debug(f'ratingsPlayerDataHandler({mode}) - loaded ratings back into memory')
         else:
                 msg = 'Error - rank data could not be saved; check bot logs.'
         if action == 'rkget':
@@ -3815,7 +4016,7 @@ class PUG(commands.Cog):
 
     def ratingsSync(self, endpoint: str = '', body: str = '', authkey: str = '', restrict: bool = False, delay: int = 0):
         if restrict and (datetime.now() - self.lastAPISyncTime).total_seconds() < delay: # 5 second delay between requests when restricted.
-            log.debug('API request throttled. Last API sync: {0}'.format(self.lastAPISyncTime.strftime('%d/%m/%Y %H:%M:%S')))
+            log.debug(f'API request throttled. Last API sync: {self.lastAPISyncTime.strftime("%d/%m/%Y %H:%M:%S")}')
             return None
         headers = {
             'Content-Type': 'application/json; charset=UTF-8',
@@ -3835,7 +4036,7 @@ class PUG(commands.Cog):
                 log.debug('Sync API response validated.')
                 return validatedJSON
             except:
-                log.error('Invalid JSON returned from Sync API, URL: {0} HTTP response: {1}; content:{2}'.format(r.url,r.status_code,r.content))
+                log.error(f'Invalid JSON returned from Sync API, URL: {r.url} HTTP response: {r.status_code}; content:{r.content}')
                 return {}
         else:
             return {}
@@ -3851,13 +4052,13 @@ class PUG(commands.Cog):
         if ctx.message.channel.id in self.pugInstances:
             if (len(mode) > 0) and mode.upper() in map(str.upper, MODE_CONFIG):
                 self.getPugForChannel(ctx.message.channel.id,mode)
-                msg = 'Pug Instance established - {0} in {1}'.format(mode, ctx.message.channel.mention)
+                msg = f'Pug Instance established - {mode} in {ctx.message.channel.mention}'
             else:
-                await ctx.send('PUG commands are already enabled in {}. Specify a valid mode to establish a new queue.'.format(ctx.message.channel.mention))
+                await ctx.send(f'PUG commands are already enabled in {ctx.message.channel.mention}. Specify a valid mode to establish a new queue.')
                 return
         else:
             self.setActiveChannel(ctx.message.channel)
-            msg = 'PUG commands are enabled in {}'.format(ctx.message.channel.mention)
+            msg = f'PUG commands are enabled in {ctx.message.channel.mention}'
         self.savePugConfig(self.configFile)
         await ctx.send(msg)
 
@@ -3871,13 +4072,13 @@ class PUG(commands.Cog):
             pug = self.getPugForChannel(ctx.message.channel.id)
             if modeGroup.upper() == 'ALL' or int(modeGroup) == 0:
                 pug.modeLimit = 0
-                await ctx.send('Mode limit removed in {0}.'.format(ctx.message.channel.mention))
+                await ctx.send(f'Mode limit removed in {ctx.message.channel.mention}.')
                 await self.listmodes(ctx, group=int(modeGroup))
                 self.savePugConfig(self.configFile)
                 return
             elif int(modeGroup) > 0:
                 pug.modeLimit = int(modeGroup)
-            await ctx.send('Mode limit set to group \'{0}\' in {1}'.format(modeGroup, ctx.message.channel.mention))
+            await ctx.send(f'Mode limit set to group \'{modeGroup}\' in {ctx.message.channel.mention}')
             await self.listmodes(ctx, group=int(modeGroup))
             self.savePugConfig(self.configFile)
             return
@@ -3892,9 +4093,9 @@ class PUG(commands.Cog):
         """Adds a player to the pug. Admin only"""
         failed = False
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         for player in players:
             if targetPug.ranked:
@@ -3902,24 +4103,24 @@ class PUG(commands.Cog):
                     if not targetPug.addRankedPlayer(player):
                         failed = True
                         if targetPug.playersReady:
-                            await ctx.send('Cannot add {0}: Ranked pug is already full.'.format(display_name(player)))
+                            await ctx.send(f'Cannot add {display_name(player)}: Ranked pug is already full.')
                         else:
-                            await ctx.send('Cannot add {0}: They are already signed.'.format(display_name(player)))
+                            await ctx.send(f'Cannot add {display_name(player)}: They are already signed.')
                     else:
-                        await ctx.send('{0} is elgible for ranked play and was added by an admin.'.format(display_name(player)))
+                        await ctx.send(f'{display_name(player)} is elgible for ranked play and was added by an admin.')
                         await self.listpugs(ctx)
                 else:
                     failed = True
-                    await ctx.send('Cannot add {0}: They are inelgible to join a ranked pug.'.format(display_name(player)))
+                    await ctx.send(f'Cannot add {display_name(player)}: They are inelgible to join a ranked pug.')
             else:
                 if not targetPug.addPlayer(player):
                     failed = True
                     if targetPug.playersReady:
-                        await ctx.send('Cannot add {0}: Pug is already full.'.format(display_name(player)))
+                        await ctx.send(f'Cannot add {display_name(player)}: Pug is already full.')
                     else:
-                        await ctx.send('Cannot add {0}: They are already signed.'.format(display_name(player)))
+                        await ctx.send(f'Cannot add {display_name(player)}: They are already signed.')
                 else:
-                    await ctx.send('{0} was added by an admin.'.format(display_name(player)))
+                    await ctx.send(f'{display_name(player)} was added by an admin.')
                     await self.listpugs(ctx)
         if not failed:
             await self.processPugStatus(ctx, targetPug)
@@ -3932,15 +4133,15 @@ class PUG(commands.Cog):
     async def adminremove(self, ctx, mode:str = '', *players: discord.Member): # hybrid_command doesn't support an undefined number of params - may need adjusting
         """Removes a player from the pug. Admin only"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
             targetPug = self.getPugForChannel(ctx.message.channel.id)
 
         for player in players:
             if targetPug.removePlayerFromPug(player):
-                await ctx.send('**{0}** was removed by an admin.'.format(display_name(player)))
+                await ctx.send(f'**{display_name(player)}** was removed by an admin.')
             else:
-                await ctx.send('{0} is not in the pug.'.format(display_name(player)))
+                await ctx.send(f'{display_name(player)} is not in the pug.')
         await self.processPugStatus(ctx, targetPug)
 
     @commands.hybrid_command(aliases=['setserver','setactiveserver'])
@@ -3953,12 +4154,12 @@ class PUG(commands.Cog):
         if mode.upper() not in map(str.upper, MODE_CONFIG):
             await ctx.send('Invalid mode specified. Please specify a valid mode to set the server for.')
             return
-        targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+        targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         if targetPug == None:
             await ctx.send('No active pug found for the specified mode in this channel.')
             return
         if targetPug.gameServer.useServer(svindex,targetPug.captainsReady): # auto start eligible servers when caps are ready
-            await ctx.send('Server was activated by an admin for {0} - {1}.'.format(mode, targetPug.gameServer.format_current_serveralias))
+            await ctx.send(f'Server was activated by an admin for {mode} - {targetPug.gameServer.format_current_serveralias}.')
             targetPug.gameServer.utQueryConsoleWatermark = targetPug.gameServer.format_new_watermark
             if targetPug.gameServer.gameServerState in ('N/A','N/AN/A'):
                 # Check whether server is being changed when captains are already ready
@@ -3970,7 +4171,7 @@ class PUG(commands.Cog):
             if targetPug.gameServer.lastSetupResult == 'Match In Progress':
                 targetPug.pugLocked = True
         else:
-            await ctx.send('Selected server **{0}** could not be activated.'.format(idx))
+            await ctx.send(f'Selected server **{idx}** could not be activated.')
     
     @commands.hybrid_command(aliases=['startserver'])
     @commands.check(admin.hasManagerRole_Check)
@@ -3981,9 +4182,9 @@ class PUG(commands.Cog):
         previousRef = self.pugInfo.gameServer.gameServerRef
         svindex = idx - 1 # offset as users see them 1-based index.
         if self.pugInfo.gameServer.useServer(svindex, True):
-            await ctx.send('**{0}** is starting up (allow up to 60s).'.format(self.pugInfo.gameServer.gameServerName))
+            await ctx.send(f'**{self.pugInfo.gameServer.gameServerName}** is starting up (allow up to 60s).')
         else:
-            await ctx.send('Selected server **{0}** could not be activated.'.format(idx))
+            await ctx.send(f'Selected server **{idx}** could not be activated.')
         self.pugInfo.gameServer.useServer(-1, True,previousRef) # return to active server
         return True
 
@@ -3996,9 +4197,9 @@ class PUG(commands.Cog):
         svindex = idx - 1 # offset as users see them 1-based index.
         if self.pugInfo.gameServer.stopOnDemandServer(svindex):
             if len(self.pugInfo.gameServer.allServers[svindex][1]) > 0:
-                await ctx.send('**{0}** is queued for shut-down.'.format(self.pugInfo.gameServer.allServers[svindex][1]))
+                await ctx.send(f'**{self.pugInfo.gameServer.allServers[svindex][1]}** is queued for shut-down.')
         else:
-            await ctx.send('Selected server **{0}** could not be activated.'.format(idx))
+            await ctx.send(f'Selected server **{idx}** could not be activated.')
 
     @commands.hybrid_command(aliases=['refreshservers'])
     @commands.check(admin.hasManagerRole_Check)
@@ -4042,7 +4243,7 @@ class PUG(commands.Cog):
             await ctx.send('Server rotation unchanged.')
         else:
             self.pugInfo.gameServer.saveServerConfig(self.pugInfo.gameServer.configFile)
-            await ctx.send('Server rotation set to: {0}'.format(', '.join(map(str,self.pugInfo.gameServer.gameServerRotation))))
+            await ctx.send(f'Server rotation set to: {", ".join(map(str, self.pugInfo.gameServer.gameServerRotation))}')
 
     @commands.hybrid_command(aliases=['checkrotation','checkrotate'])
     @commands.check(isActiveChannel_Check)
@@ -4053,7 +4254,7 @@ class PUG(commands.Cog):
         if len(self.pugInfo.gameServer.gameServerRotation) > 0:
             self.pugInfo.gameServer.checkServerRotation()
             if self.pugInfo.gameServer.gameServerRef != tempRotation:
-                await ctx.send('Server rotation changed server to: {0}.'.format(self.pugInfo.gameServer.format_current_serveralias))
+                await ctx.send(f'Server rotation changed server to: {self.pugInfo.gameServer.format_current_serveralias}.')
             else:
                 await ctx.send('Server is already correctly set.')
         else:
@@ -4071,13 +4272,13 @@ class PUG(commands.Cog):
                 svindex = int(x)-1
                 if svindex >= 0 and svindex < len(self.pugInfo.gameServer.allServers):
                     if (thisWeek == int(x)):
-                        await ctx.send(' - {0}{1}'.format(self.pugInfo.gameServer.allServers[svindex][1],' :arrow_forward: This week'))
+                        await ctx.send(f' - {self.pugInfo.gameServer.allServers[svindex][1]} :arrow_forward: This week')
                         thisWeek = -1
                     elif (nextWeek == int(x)):
-                        await ctx.send(' - {0}{1}'.format(self.pugInfo.gameServer.allServers[svindex][1],' :fast_forward: Next week'))
+                        await ctx.send(f' - {self.pugInfo.gameServer.allServers[svindex][1]} :fast_forward: Next week')
                         nextWeek = -1
                     else:
-                        await ctx.send(' - {0}'.format(self.pugInfo.gameServer.allServers[svindex][1]))
+                        await ctx.send(f' - {self.pugInfo.gameServer.allServers[svindex][1]}')
         else:
             await ctx.send('Server rotation is not configured.')
 
@@ -4088,9 +4289,9 @@ class PUG(commands.Cog):
         """Adds a map to the available map list. Admin only"""
         if self.pugInfo.maps.addMapToAvailableList(map):
             self.pugInfo.gameServer.saveMapConfig(self.pugInfo.gameServer.configFile, self.pugInfo.maps.availableMapsList)
-            await ctx.send('**{0}** was added to the available maps by an admin. The available maps are now:\n{1}'.format(map, self.pugInfo.maps.format_available_maplist))
+            await ctx.send(f'**{map}** was added to the available maps by an admin. The available maps are now:\n{self.pugInfo.maps.format_available_maplist}')
         else:
-            await ctx.send('**{0}** could not be added. Is it already in the list?'.format(map))
+            await ctx.send(f'**{map}** could not be added. Is it already in the list?')
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
@@ -4101,9 +4302,9 @@ class PUG(commands.Cog):
             offset_index = index - 1 # offset as users see them 1-based index
             if self.pugInfo.maps.insertMapIntoAvailableList(offset_index, map):
                 self.pugInfo.gameServer.saveMapConfig(self.pugInfo.gameServer.configFile, self.pugInfo.maps.availableMapsList)
-                await ctx.send('**{0}** was inserted into the available maps by an admin. The available maps are now:\n{1}'.format(map, self.pugInfo.maps.format_available_maplist))
+                await ctx.send(f'**{map}** was inserted into the available maps by an admin. The available maps are now:\n{self.pugInfo.maps.format_available_maplist}')
             else:
-                await ctx.send('**{0}** could not be inserted. Is it already in the list?'.format(map))
+                await ctx.send(f'**{map}** could not be inserted. Is it already in the list?')
         else:
             await ctx.send('The valid format of this command is, for example: !admininsertmap # AS-MapName, where # is in the range (1, NumMaps + 1).')
 
@@ -4118,9 +4319,9 @@ class PUG(commands.Cog):
             oldmap = self.pugInfo.maps.availableMapsList[index]
             if self.pugInfo.maps.substituteMapInAvailableList(index, map):
                 self.pugInfo.gameServer.saveMapConfig(self.pugInfo.gameServer.configFile, self.pugInfo.maps.availableMapsList)
-                await ctx.send('**{1}** was added to the available maps by an admin in position #{0}, replacing {2}. The available maps are now:\n{3}'.format(mapref[0],map,oldmap,self.pugInfo.maps.format_available_maplist))
+                await ctx.send(f'**{map}** was added to the available maps by an admin in position #{mapref[0]}, replacing {oldmap}. The available maps are now:\n{self.pugInfo.maps.format_available_maplist}')
             else:
-                await ctx.send('**{1}** could not be added in slot {0}. Is it already in the list? Is the position valid?'.format(mapref[0],map))
+                await ctx.send(f'**{map}** could not be added in slot {mapref[0]}. Is it already in the list? Is the position valid?')
         else:
             await ctx.send('The valid format of this command is, for example: !adminreplacemap # AS-MapName, where # is in the range (1, NumMaps).')
 
@@ -4136,9 +4337,9 @@ class PUG(commands.Cog):
             mapNameToRemove = map
         if self.pugInfo.maps.removeMapFromAvailableList(mapNameToRemove):
             self.pugInfo.gameServer.saveMapConfig(self.pugInfo.gameServer.configFile,self.pugInfo.maps.availableMapsList)
-            await ctx.send('**{0}** was removed from the available maps by an admin.\n{1}'.format(mapNameToRemove, self.pugInfo.maps.format_available_maplist))
+            await ctx.send(f'**{mapNameToRemove}** was removed from the available maps by an admin.\n{self.pugInfo.maps.format_available_maplist}')
         else:
-            await ctx.send('**{0}** could not be removed. Is it in the list?'.format(map))
+            await ctx.send(f'**{map}** could not be removed. Is it in the list?')
 
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
@@ -4146,8 +4347,8 @@ class PUG(commands.Cog):
     async def passwords(self, ctx):
         """Provides current game passwords to the requesting administrator. Admin only"""
         if self.isPugInProgress:
-            await ctx.message.author.send('For the game currently running at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
-            await ctx.message.author.send('{0} - {1}'.format(self.pugInfo.gameServer.format_red_password, self.pugInfo.gameServer.format_blue_password))
+            await ctx.message.author.send(f'For the game currently running at {self.pugInfo.gameServer.format_gameServerURL}')
+            await ctx.message.author.send(f'{self.pugInfo.gameServer.format_red_password} - {self.pugInfo.gameServer.format_blue_password}')
             await ctx.send('Check your private messages!')
         else:
             await ctx.send('There is no game in progress.')
@@ -4160,7 +4361,7 @@ class PUG(commands.Cog):
     async def rksave(self, ctx):
         """Calls for a configuration save"""
         if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+            await ctx.send(f'A ranked match is already underway at {self.pugInfo.gameServer.format_gameServerURL}')
             await ctx.send('Please try again after the match has concluded.')
         else:
             self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
@@ -4171,10 +4372,13 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkset(self, ctx, player: discord.Member, mode: str = 'rASPlus', rating: int = 500, externalpid: int = 0):
+    async def rkset(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT, rating: int = 500, externalpid: int = 0):
         """Adds or sets a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus) Weight(e.g., 500)"""
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {self.pugInfo.gameServer.format_gameServerURL}')
             await ctx.send('Please try again after the match has concluded.')
         else:
             msg = self.ratingsPlayerDataHandler('rkset',mode,player,rating,False,externalpid)
@@ -4185,10 +4389,13 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkdel(self, ctx, player: discord.Member, mode: str = 'rASPlus'):
+    async def rkdel(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT):
         """Removes a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus)"""
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {self.pugInfo.gameServer.format_gameServerURL}')
             await ctx.send('Please try again after the match has concluded.')
         else:
             msg = self.ratingsPlayerDataHandler('rkdel',mode,player,0)
@@ -4199,8 +4406,11 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rksync(self, ctx, mode: str = 'rASPlus', item: str = '', direction: str = 'outbound', redcap: discord.Member = None, bluecap: discord.Member = None):
-        if (self.pugInfo.pugLocked):
+    async def rksync(self, ctx, mode: str = MODE_RANKED_DEFAULT, item: str = '', direction: str = 'outbound', redcap: discord.Member = None, bluecap: discord.Member = None):
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if (pug.pugLocked or self.ratingsLock):
             await ctx.send('Ranked data cannot be synchronised while a game is in progress. Please try again later.')
             return True
         if (mode in [None,'']):
@@ -4209,37 +4419,37 @@ class PUG(commands.Cog):
         if (item in [None,'']):
             await ctx.send('A valid match reference or object type must be specified.')
             return True
-        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
-            mode = self.pugInfo.mode
+        if pug.ranked and pug.mode.upper() == mode.upper():
+            mode = pug.mode
         matchInfo = self.ratingsMatchInfo(mode,item)
         if matchInfo == {} and direction == 'outbound':
             await ctx.send('The provided valid match reference could not be found for outbound sync.')
         elif matchInfo != {} and direction == 'outbound':
             started = datetime.fromisoformat(matchInfo['startdate'])
-            await ctx.send('{0} match `{1}` played on {2} at {3}...'.format('Synchronising',matchInfo['gameref'],started.strftime('%d/%m/%Y'),started.strftime('%H:%M:%S')))
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rk = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            await ctx.send(f'Synchronising match `{matchInfo["gameref"]}` played on {started.strftime("%d/%m/%Y")} at {started.strftime("%H:%M:%S")}...')
+            self.savePugRatings(pug.ratingsFile)
+            rk = pug.loadPugRatings(pug.ratingsFile, True)
             if 'rankedgames' in rk:
                 for x in rk['rankedgames']:
                     if 'games' in x and 'mode' in x and x['mode'].upper() == mode.upper():
                         for g in x['games']:
                             if 'gameref' in g and g['gameref'].upper() == item.upper():
-                                log.debug('rksync() - Found match data in rk; completed={0}'.format(g['completed']))
-            # self.pugInfo.savePugRatings(self.pugInfo.ratingsFile,rk)
-            # self.pugInfo.setRankedMode(MODE_CONFIG[self.pugInfo.mode].isRanked, False)
+                                log.debug(f'rksync() - Found match data in rk; completed={g["completed"]}')
+            # pug.savePugRatings(pug.ratingsFile,rk)
+            # pug.setRankedMode(MODE_CONFIG[pug.mode].isRanked, False)
         elif direction == 'inbound':
             if item in ['all','matches','player','players']:
-                log.debug('rksync() - Batch fetching data from API: {0}'.format(item))
+                log.debug(f'rksync() - Batch fetching data from API: {item}')
                 # await ctx.send('{0} {1} data from {2}...'.format('Fetching',item,'Sync API'))
-                await ctx.send('Synchronisation of {0} data for `{1}` has not yet been implemented.'.format(item, mode))
+                await ctx.send(f'Synchronisation of {item} data for `{mode}` has not yet been implemented.')
             else:
-                if self.pugInfo.ranked:
-                    endpoint = '{0}?&matchcode={1}'.format(self.pugInfo.ratingsSyncAPI['matchDataURL'],item)
+                if pug.ranked:
+                    endpoint = f'{pug.ratingsSyncAPI["matchDataURL"]}?&matchcode={item}'
                 else:
-                    rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
-                    endpoint = '{0}?&matchcode={1}'.format(rkData['syncapi']['matchDataURL'],item)
-                log.debug('rksync() - Fetching provided match from API: {0}'.format(endpoint))
-                await ctx.send('{0} match `{1}` from {2}...'.format('Fetching',item,'Sync API'))
+                    rkData = pug.loadPugRatings(pug.ratingsFile, True)
+                    endpoint = f'{rkData["syncapi"]["matchDataURL"]}?&matchcode={item}'
+                log.debug(f'rksync() - Fetching provided match from API: {endpoint}')
+                await ctx.send(f'Fetching match `{item}` from {pug.ratingsSyncAPI["matchDataURL"]}...')
                 syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
                 if syData not in [{},None,''] and 'match_summary' in syData:
                     log.debug('rksync() - Match data fetched and valid.')
@@ -4259,61 +4469,64 @@ class PUG(commands.Cog):
                                 if p not in [None,'',{}] and 'ratingvalue' in p:
                                     g_red_rp += int(p['ratingvalue'])
                                 else:
-                                    log.debug('rksync() - Player lookup failed for ID: {0}'.format(s['did']))
+                                    log.debug(f'rksync() - Player lookup failed for ID: {s["did"]}')
                             elif 'team' in s and s['team'] == 'Blue':
                                 g_blue.append(s['did'])
                                 p = self.ratingsPlayerDataHandler('rkget', mode, s['did'])
                                 if p not in [None,'',{}] and 'ratingvalue' in p:
                                     g_blue_rp += int(p['ratingvalue'])
                                 else:
-                                    log.debug('rksync() - Player lookup failed for ID: {0}'.format(s['did']))
+                                    log.debug(f'rksync() - Player lookup failed for ID: {s["did"]}')
                         else:
                             if 'teamcode' in s and s['teamcode'] > 250:
-                                log.debug('rksync() - Player spectating: {0}'.format(s['playername']))
+                                log.debug(f'rksync() - Player spectating: {s["playername"]}')
                             else:
                                 invalid_players.append(s['playername'])
                     if redcap not in ['',None] and redcap.id in g_red:
-                        log.debug('rksync() - Overriding Red captain from: {0}, to: {1}'.format(g_red[0],redcap.id))
+                        log.debug(f'rksync() - Overriding Red captain from: {g_red[0]}, to: {redcap.id}')
                         g_red.remove(redcap.id)
                         g_red.insert(0,redcap.id)
                     if bluecap not in ['',None] and bluecap.id in g_blue:
-                        log.debug('rksync() - Overriding Blue captain from: {0}, to: {1}'.format(g_blue[0],bluecap.id))
+                        log.debug(f'rksync() - Overriding Blue captain from: {g_blue[0]}, to: {bluecap.id}')
                         g_blue.remove(bluecap.id)
                         g_blue.insert(0,bluecap.id)
                     for m in syData['maps']:
                         if 'map' in m and m['map'] not in g_maps:
                             g_maps.append(m['map'])
                     if len(invalid_players):
-                        log.debug('rksync() - Abandonded sync of match data for {0} due to invalid players found.'.format(item))
-                        await ctx.send('Could not sync match `{0}` for mode {1}. One or more invalid or unregistered players found: {2}'.format(item, mode,', '.join(invalid_players)))
+                        log.debug(f'rksync() - Abandonded sync of match data for {item} due to invalid players found.')
+                        await ctx.send(f'Could not sync match `{item}` for mode {mode}. One or more invalid or unregistered players found: {", ".join(invalid_players)}')
                         return True
                     else:
-                        log.debug('rksync() - Preparing to store match data for {0}.'.format(item))
-                        if self.pugInfo.storeRankedPug(mode=mode, matchCode=item, redScore=syData['score_red'], blueScore=syData['score_blue'], timeStarted=g_start, hasEnded=False, redPlayers=g_red, bluePlayers=g_blue, maps=g_maps, redPower=g_red_rp, bluePower=g_blue_rp, timeEnded=g_end):
+                        log.debug(f'rksync() - Preparing to store match data for {item}.')
+                        if pug.storeRankedPug(mode=mode, matchCode=item, redScore=syData['score_red'], blueScore=syData['score_blue'], timeStarted=g_start, hasEnded=False, redPlayers=g_red, bluePlayers=g_blue, maps=g_maps, redPower=g_red_rp, bluePower=g_blue_rp, timeEnded=g_end):
                             log.debug('rksync() - Stored match successfully.')
-                            self.pugInfo.setRankedMode(MODE_CONFIG[self.pugInfo.mode].isRanked, False)
+                            pug.setRankedMode(MODE_CONFIG[pug.mode].isRanked, False)
                             if len(g_red) == len(g_blue):
                                 log.debug('rksync() - Match marked as completed successfully.')
                                 await self.rkvoidmatch(ctx,mode,item)
                                 await ctx.send('Match data synchronised successfully.')
                         return True
                 if syData == None:
-                    await ctx.send('Could not sync match `{0}` for mode {1}. API requests throttled, please try again in 10s.'.format(item, mode))
+                    await ctx.send(f'Could not sync match `{item}` for mode {mode}. API requests throttled, please try again in 10s.')
                 else:
-                    await ctx.send('Could not sync match `{0}` for mode {1}. Please check the reference is valid.'.format(item, mode))
+                    await ctx.send(f'Could not sync match `{item}` for mode {mode}. Please check the reference is valid.')
         return True
 
     @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkrecalc(self, ctx, player: discord.Member, mode: str = 'rASPlus', seed: int = 0, pid: int = 0):
+    async def rkrecalc(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT, seed: int = 0, pid: int = 0):
         """Recalculates RP of a player: PlayerNick GameMode(e.g. rASPlus) <optional seed value>"""
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('RP cannot be reclculated while a ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)        
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'RP cannot be reclculated while a ranked match is already underway at {pug.gameServer.format_gameServerURL}')
         else:
             if pid > 0:
-                await ctx.send('Recalculating RP (override ID={0})...'.format(pid))
+                await ctx.send(f'Recalculating RP (override ID={pid})...')
                 msg = self.ratingsPlayerDataHandler('rkrecalc',mode,pid,seed)
             else:
                 await ctx.send('Recalculating RP...')
@@ -4331,7 +4544,10 @@ class PUG(commands.Cog):
     @commands.check(isActiveChannel_Check)
     async def rkgamesimulation(self, ctx, player1=None, player2=None, player3=None, player4=None, player5=None, player6=None, player7=None, player8=None, player9=None, player10=None, player11=None, player12=None, player13=None, player14=None):
         """Simulates player picks for the active ranked mode. Use player:(+-)100 modifiers to test changes."""
-        if not self.pugInfo.ranked:
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=self.pugInfo.mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if not pug.ranked:
             await ctx.send('Ranked mode must be active for player pick simulations to occur.')
             return True
         players = []
@@ -4349,7 +4565,7 @@ class PUG(commands.Cog):
                 if modifier == None:
                     if player == None:
                         player = p
-                    log.debug('rkgamesimulation() - simulation pre-processed player: {0}'.format(player))
+                    log.debug(f'rkgamesimulation() - simulation pre-processed player: {player}')
                 else:
                     if player == None:
                         player = modifier[1]
@@ -4359,17 +4575,17 @@ class PUG(commands.Cog):
                         override = True
                     elif len(modifier[3]):
                         adjust = 0-adjust
-                pstats = self.ratingsPlayerDataHandler('rkget', self.pugInfo.mode, player)
+                pstats = self.ratingsPlayerDataHandler('rkget', pug.mode, player)
                 if pstats not in ['', None]:
                     if adjust > 0:
                         if override:
                             ratingValue = adjust
                         else:
                             ratingValue = pstats['ratingvalue']+adjust
-                        log.debug('rkgamesimulation() - adjusted player rating for {0} from {1} to {2}'.format(player,str(pstats['ratingvalue']),str(ratingValue)))
+                        log.debug(f'rkgamesimulation() - adjusted player rating for {player} from {pstats["ratingvalue"]} to {ratingValue}')
                     else:
                         ratingValue = pstats['ratingvalue']
-                        log.debug('rkgamesimulation() - adding player {0} at RP {1} to simulation'.format(player,str(pstats['ratingvalue'])))
+                        log.debug(f'rkgamesimulation() - adding player {player} at RP {pstats["ratingvalue"]} to simulation')
                     players.append({
                         'id': pstats['did'],
                         'did': pstats['did'],
@@ -4379,12 +4595,12 @@ class PUG(commands.Cog):
                 else:
                     invalid.append(player)
         if len(players) > 1 and len(players) % 2 == 0:
-            msg = self.pugInfo.makeRatedTeams(simulatedRatings=players)
-            await ctx.send('Simulated player pick for {0} provided and registered players:'.format(len(players)))
+            msg = pug.makeRatedTeams(simulatedRatings=players)
+            await ctx.send(f'Simulated player pick for {str(len(players))} provided and registered players:')
             await ctx.send(msg)
         else:
             if len(invalid):
-                await ctx.send('Invalid player(s): {0}'.format(PLASEP.join(invalid)))
+                await ctx.send(f'Invalid player(s): {", ".join(invalid)}')
             await ctx.send('Provide two or more valid players for simulation.')
         return True
 
@@ -4397,19 +4613,22 @@ class PUG(commands.Cog):
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified to clear maps.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('Maps could not be cleared - a ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'Maps could not be cleared - a ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Please try again after the match has concluded.')
         else:
             # Save then load the current ratings data before manipulating and saving again
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            pug.savePugRatings(pug.ratingsFile)
+            rkData = pug.loadPugRatings(pug.ratingsFile, True)
             rkUpdate = False
             if 'rankedgames' in rkData:
-                log.debug('rkclearmaps({0}) - ranked games present.'.format(mode))
+                log.debug(f'rkclearmaps({mode}) - ranked games present.')
                 for x in rkData['rankedgames']:
                     if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                        log.debug('rkclearmaps({0}) - updating mode {1}.'.format(mode,x['mode']))
+                        log.debug(f'rkclearmaps({mode}) - updating mode {x["mode"]}.')
                         mode = x['mode'] # update formatting
                         if 'maps' in x:
                             if 'maplist' in x['maps']:
@@ -4417,10 +4636,10 @@ class PUG(commands.Cog):
                             x['fixedpicklimit'] = 0
                             x['startmapfrompick'] = 0
                         rkUpdate = True
-            if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Map list, pick limit and start map settings cleared for ranked game mode {0}'.format(mode))
-                if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+            if rkUpdate and pug.savePugRatings(pug.ratingsFile, rkData):
+                await ctx.send(f'Map list, pick limit and start map settings cleared for ranked game mode {mode}')
+                if (pug.ranked): # reload data for current ranked mode
+                    pug.setRankedMode(pug.ranked, True)
             else:
                 await ctx.send('Error - ranked map data could not be saved; check bot logs.')
         return True
@@ -4437,18 +4656,21 @@ class PUG(commands.Cog):
         if len(maps) == 0:
             await ctx.send('Provide one or more maps in the format: MapName1 MapName2:Order:Weight\nOptional parameters - **Order** represents the pick order (0 is any order) and **Weight** will apply a multiplier on chances of being picked - higher weight = higher chance of being picked, default weight is 1.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Maps cannot be added while a match is in progress.')
         else:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            pug.savePugRatings(pug.ratingsFile)
+            rkData = pug.loadPugRatings(pug.ratingsFile, True)
             rkUpdate = False
             if 'rankedgames' in rkData:
-                log.debug('rkaddmaps({0},{1}) - ranked games present.'.format(mode,maps))
+                log.debug(f'rkaddmaps({mode},{maps}) - ranked games present.')
                 for x in rkData['rankedgames']:
                     if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                        log.debug('rkaddmaps({0},{1}) - updating mode {2}.'.format(mode,maps,x['mode']))
+                        log.debug(f'rkaddmaps({mode},{maps}) - updating mode {x["mode"]}.')
                         mode = x['mode'] # update formatting
                         maplist = []
                         if 'maps' in x:
@@ -4484,10 +4706,10 @@ class PUG(commands.Cog):
                             else:
                                 x['maps']['startmapfrompick'] = o
                         rkUpdate = True
-            if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Map list updated for ranked game mode {0}'.format(mode))
-                if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+            if rkUpdate and pug.savePugRatings(pug.ratingsFile, rkData):
+                await ctx.send(f'Map list updated for ranked game mode {mode}')
+                if (pug.ranked): # reload data for current ranked mode
+                    pug.setRankedMode(pug.ranked, True)
             elif rkUpdate==False:
                 await ctx.send('Error - a ranked map limit could not be saved - game mode not found.')
             else:
@@ -4503,18 +4725,21 @@ class PUG(commands.Cog):
         if (mode in [None,''] or limit in [None, '']):
             await ctx.send('A valid ranked mode and map limit must be specified.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0} [{1},{2},{3}]'.format(self.pugInfo.gameServer.format_gameServerURL,self.pugInfo.pugLocked,self.pugInfo.ranked))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL} [{pug.pugLocked},{pug.ranked}]')
             await ctx.send('Map limits cannot be modified while a match is in progress.')
         else:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            pug.savePugRatings(pug.ratingsFile)
+            rkData = pug.loadPugRatings(pug.ratingsFile, True)
             rkUpdate = False
             if 'rankedgames' in rkData:
-                log.debug('rkmaplimit({0},{1}) - ranked games present.'.format(mode,limit))
+                log.debug(f'rkmaplimit({mode},{limit}) - ranked games present.')
                 for x in rkData['rankedgames']:
                     if 'mode' in x and str(x['mode']).upper() == mode.upper():
-                        log.debug('rkmaplimit({0},{1}) - updating mode {2}.'.format(mode,limit,x['mode']))
+                        log.debug(f'rkmaplimit({mode},{limit}) - updating mode {x["mode"]}.')
                         mode = x['mode'] # update formatting
                         if 'maps' in x:
                             x['maps']['fixedpicklimit'] = limit
@@ -4533,10 +4758,10 @@ class PUG(commands.Cog):
                             if shuffle[1:2].isnumeric():
                                 x['maps']['startmapfrompick'] = max(0, min(int(shuffle[1:2]),limit))
                         rkUpdate = True
-            if rkUpdate and self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Map limit updated for ranked game mode {0}'.format(mode))
-                if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+            if rkUpdate and pug.savePugRatings(pug.ratingsFile, rkData):
+                await ctx.send(f'Map limit updated for ranked game mode {mode}')
+                if (pug.ranked): # reload data for current ranked mode
+                    pug.setRankedMode(pug.ranked, True)
             elif rkUpdate==False:
                 await ctx.send('Error - a ranked map limit could not be saved - game mode not found.')
             else:
@@ -4547,35 +4772,41 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkmapsimulation(self, ctx, count=5):
-        """Simulates a given number of auto-picks for the active ranked mode, using rules for that mode"""
-        if not self.pugInfo.ranked:
-            await ctx.send('Ranked mode must be active for map pick simulations to occur.')
+    async def rkmapsimulation(self, ctx, mode: str = MODE_RANKED_DEFAULT, count=5):
+        """Simulates a given number of auto-picks for a given ranked mode. Example: !rkmapsim rASPlus 5"""
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if not pug.ranked:
+            await ctx.send('Ranked mode must be chosen for map pick simulations to occur.')
             return True
-        cachedMLR = self.pugInfo.maps.mapListWeighting
+        cachedMLR = pug.maps.mapListWeighting.copy()
         count = max(1, min(count, 30))
-        await ctx.send('Simulating map picks for {0} matches:'.format(count))
+        await ctx.send(f'Simulating map picks for {count} matches:')
         for x in range(count):
-            await ctx.send('**Simulation {0}**: {1}'.format(x+1,PLASEP.join(self.pugInfo.maps.autoPickRankedMaps(simulate=True))))
-        self.pugInfo.maps.mapListWeighting = cachedMLR # return back to current state
+            await ctx.send(f'**Simulation {x+1}**: {PLASEP.join(pug.maps.autoPickRankedMaps(simulate=True))}')
+        pug.maps.mapListWeighting = cachedMLR # return back to current state
         return True
 
     @commands.hybrid_command(aliases=['rkresetmaps','rkresetmappri','rkmapresetpri','rkmapresetdesirability'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkresetmapdesirability(self, ctx):
+    async def rkresetmapdesirability(self, ctx, mode: str = MODE_RANKED_DEFAULT):
         """Resets map desirability to defaults within an active ranked mode."""
-        if not self.pugInfo.ranked:
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if not pug.ranked:
             await ctx.send('Ranked mode must be active for map desirability factors to be reset.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Configuration cannot be modified while a match is in progress.')
             return True
-        self.pugInfo.maps.adjustRankedMapDesirability(action='resetAll')
-        self.pugInfo.ratings['maps']['maplist'] = self.pugInfo.maps.mapListWeighting
-        if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile):
+        pug.maps.adjustRankedMapDesirability(action='resetAll')
+        pug.ratings['maps']['maplist'] = pug.maps.mapListWeighting
+        if pug.savePugRatings(pug.ratingsFile):
             await ctx.send('Map desirability values reset to pool defaults.')
             return True
 
@@ -4583,18 +4814,21 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkincreasemapdesirability(self, ctx, map: str = '', factor: int = 2):
+    async def rkincreasemapdesirability(self, ctx, mode: str = '', map: str = '', factor: int = 2):
         """Inceases map desirability within an active ranked mode. Parameters: Map Factor, e.g. AS-Ballistic 2"""
-        if not self.pugInfo.ranked:
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if not pug.ranked:
             await ctx.send('Ranked mode must be active for map desirability factors to be adjusted.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Configuration cannot be modified while a match is in progress.')
             return True
-        if self.pugInfo.maps.adjustRankedMapDesirability(action='mapincrease',map=map, adjustment=factor):
-            self.pugInfo.ratings['maps']['maplist'] = self.pugInfo.maps.mapListWeighting
-            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile):
+        if pug.maps.adjustRankedMapDesirability(action='mapincrease',map=map, adjustment=factor):
+            pug.ratings['maps']['maplist'] = pug.maps.mapListWeighting
+            if pug.savePugRatings(pug.ratingsFile):
                 await ctx.send('Map desirability value adjusted.')
                 return True
         else:
@@ -4605,18 +4839,21 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
-    async def rkdecreasemapdesirability(self, ctx, map: str = '', divisor: int = 2):
+    async def rkdecreasemapdesirability(self, ctx, mode: str = '', map: str = '', divisor: int = 2):
         """Decreases map desirability within an active ranked mode. Parameters: Map Divisor, e.g. AS-Bridge 2"""
-        if not self.pugInfo.ranked:
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if not pug.ranked:
             await ctx.send('Ranked mode must be active for map desirability factors to be adjusted.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Configuration cannot be modified while a match is in progress.')
             return True
-        if self.pugInfo.maps.adjustRankedMapDesirability(action='mapdecrease',map=map, adjustment=divisor):
-            self.pugInfo.ratings['maps']['maplist'] = self.pugInfo.maps.mapListWeighting
-            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile):
+        if pug.maps.adjustRankedMapDesirability(action='mapdecrease',map=map, adjustment=divisor):
+            pug.ratings['maps']['maplist'] = pug.maps.mapListWeighting
+            if pug.savePugRatings(pug.ratingsFile):
                 await ctx.send('Map desirability value adjusted.')
                 return True
         else:
@@ -4632,37 +4869,40 @@ class PUG(commands.Cog):
         if (mode in [None,'']):
             await ctx.send('A valid ranked mode must be specified.')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Configuration cannot be modified while a match is in progress.')
             return True
-        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        pug.savePugRatings(pug.ratingsFile)
+        rkData = pug.loadPugRatings(pug.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
                     mode = x['mode']
                     previousSettings = ''
                     if 'capMode' in x:
-                        previousSettings = previousSettings+'Captain mode: {0} ({1}); '.format(RATED_CAP_MODE[x['capMode']],x['capMode'])
+                        previousSettings = previousSettings+f'Captain mode: {RATED_CAP_MODE[x["capMode"]]} ({x["capMode"]}); '
                         if 'capWindow' in x and int(x['capMode']) == 3:
-                            previousSettings = previousSettings+'Time window for captain selection: {0}s; '.format(str(x['capWindow']))
+                            previousSettings = previousSettings+f'Time window for captain selection: {str(x["capWindow"])}s; '
                     if 'capRole' in x and len(x['capRole']) > 0:
-                        previousSettings = previousSettings+'Discord role for captain selection: {0}; '.format(x['capRole'])
+                        previousSettings = previousSettings+f'Discord role for captain selection: {x["capRole"]}; '
                     x['capMode'] = max(0, min(capmode, 2)) # clamp to 0-2 - future support for mode 3 will be needed
-                    newSettings = 'Captain mode: {0} ({1}); '.format(RATED_CAP_MODE[x['capMode']],x['capMode'])
+                    newSettings = f'Captain mode: {RATED_CAP_MODE[x["capMode"]]} ({x["capMode"]}); '
                     if capmode == 3:
                         x['capWindow'] = max(30, min(window, 240)) # clamp to 30-240
-                        newSettings = newSettings+'Time window for captain selection: {0}s; '.format(str(x['capWindow']))
+                        newSettings = newSettings+f'Time window for captain selection: {str(x["capWindow"])}s; '
                     else:
                         x['capWindow'] = 0
                     if capmode == 2 and role is not None:
                         x['capRole'] = role.name
-                        newSettings = 'Discord role for captain selection: {0}; '.format(x['capRole'])
-            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Ranked game mode {0} configuration updated.\nPrevious settings - {1}\nNew settings - {2}'.format(mode,previousSettings,newSettings))
-                if (self.pugInfo.ranked): # reload data for current ranked mode
-                    self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+                        newSettings = f'Discord role for captain selection: {x["capRole"]}; '
+            if pug.savePugRatings(pug.ratingsFile, rkData):
+                await ctx.send(f'Ranked game mode {mode} configuration updated.\nPrevious settings - {previousSettings}\nNew settings - {newSettings}')
+                if (pug.ranked): # reload data for current ranked mode
+                    pug.setRankedMode(pug.ranked, True)
             else:
                 await ctx.send('Error - ranked game config could not be updated; check bot logs.')
         return True
@@ -4679,12 +4919,15 @@ class PUG(commands.Cog):
         if (scoremode.lower() not in ['permap','pergame']):
             await ctx.send('Settings not saved: Score Mode must be either: "permap" or "pergame".')
             return True
-        if self.pugInfo.pugLocked and self.pugInfo.ranked:
-            await ctx.send('A ranked match is already underway at {0}'.format(self.pugInfo.gameServer.format_gameServerURL))
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if pug.pugLocked and pug.ranked:
+            await ctx.send(f'A ranked match is already underway at {pug.gameServer.format_gameServerURL}')
             await ctx.send('Configuration cannot be modified while a match is in progress.')
             return True
-        self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        pug.savePugRatings(pug.ratingsFile)
+        rkData = pug.loadPugRatings(pug.ratingsFile, True)
         rkUpdate = False
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
@@ -4693,12 +4936,12 @@ class PUG(commands.Cog):
                     previousSettings = ''
                     if 'scoring' in x:
                         if 'mode' in x['scoring'] and 'teamWin' in x['scoring'] and 'teamLose' in x['scoring'] and 'capWin' in x['scoring'] and 'capLose' in x['scoring']:
-                            previousSettings = 'Scoring mode: {0}; Points - Winning team: {1}, Losing Team: {2}, Winning Cap: {3}, Losing Cap: {4}'.format(x['scoring']['mode'],x['scoring']['teamWin'],x['scoring']['teamLose'],x['scoring']['capWin'],x['scoring']['capLose'])
+                            previousSettings = f'Scoring mode: {x["scoring"]["mode"]}; Points - Winning team: {x["scoring"]["teamWin"]}, Losing Team: {x["scoring"]["teamLose"]}, Winning Cap: {x["scoring"]["capWin"]}, Losing Cap: {x["scoring"]["capLose"]}'
                         if 'capMode' in x and x['capMode'] == 3:
                             if 'volCapWin' in x['scoring'] and (x['scoring']['volCapWin']) > 0:
-                                previousSettings = previousSettings+', Winning Voluntary Captain: {0}'.format(x['scoring']['volCapWin'])
+                                previousSettings = previousSettings+f', Winning Voluntary Captain: {x["scoring"]["volCapWin"]}'
                             if 'volCapLose' in x['scoring'] and (x['scoring']['volCapLose']) != 0:
-                                previousSettings = previousSettings+', Losing Voluntary Captain: {0}'.format(x['scoring']['volCapLose'])
+                                previousSettings = previousSettings+f', Losing Voluntary Captain: {x["scoring"]["volCapLose"]}'
                     x['scoring'] = {
                         'mode': scoremode,
                         'teamWin': max(0, teamwin),
@@ -4708,15 +4951,15 @@ class PUG(commands.Cog):
                         'volCapWin': max(0, volcapwin),
                         'volCapLose': volcaplose
                     }
-                    newSettings = 'Scoring mode: {0}; Points - Winning team: {1}, Losing Team: {2}, Winning Cap: {3}, Losing Cap: {4}'.format(x['scoring']['mode'],x['scoring']['teamWin'],x['scoring']['teamLose'],x['scoring']['capWin'],x['scoring']['capLose'])
+                    newSettings = f'Scoring mode: {x["scoring"]["mode"]}; Points - Winning team: {x["scoring"]["teamWin"]}, Losing Team: {x["scoring"]["teamLose"]}, Winning Cap: {x["scoring"]["capWin"]}, Losing Cap: {x["scoring"]["capLose"]}'
                     if 'capMode' in x and x['capMode'] == 3:
-                        newSettings = newSettings+', Winning Voluntary Captain: {0}, Losing Voluntary Captain: {1}'.format(x['scoring']['volCapWin'],x['scoring']['volCapLose'])
+                        newSettings = newSettings+f', Winning Voluntary Captain: {x["scoring"]["volCapWin"]}, Losing Voluntary Captain: {x["scoring"]["volCapLose"]}'
                     rkUpdate = True
         if rkUpdate == True:
-            if self.pugInfo.savePugRatings(self.pugInfo.ratingsFile, rkData):
-                await ctx.send('Ranked game mode {0} configuration updated.\nPrevious settings - {1}\nNew settings - {2}'.format(mode,previousSettings,newSettings))
-                if (self.pugInfo.ranked): # reload data for current ranked mode
-                        self.pugInfo.setRankedMode(self.pugInfo.ranked, True)
+            if pug.savePugRatings(pug.ratingsFile, rkData):
+                await ctx.send(f'Ranked game mode {mode} configuration updated.\nPrevious settings - {previousSettings}\nNew settings - {newSettings}')
+                if (pug.ranked): # reload data for current ranked mode
+                        pug.setRankedMode(pug.ranked, True)
                 else:
                     await ctx.send('Error - ranked game config could not be updated; check bot logs.')
         else:
@@ -4728,17 +4971,20 @@ class PUG(commands.Cog):
     @commands.check(isActiveChannel_Check)
     async def rkrecent(self, ctx, mode: str = '', last: int = 5, matchref: str = '', completed: str = ''):
         """Returns recent ranked matches"""
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
         if (mode in [None,'']):
-            if self.pugInfo.ranked:
-                mode = self.pugInfo.mode
+            if pug.ranked:
+                mode = pug.mode
             else:
                 await ctx.send('A valid ranked mode must be specified.')
                 return True
         games = []
         msg = []
-        if self.pugInfo.pugLocked != True and self.pugInfo.ranked:
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-        rkData = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+        if pug.pugLocked != True and pug.ranked:
+            pug.savePugRatings(pug.ratingsFile)
+        rkData = pug.loadPugRatings(pug.ratingsFile, True)
         if 'rankedgames' in rkData:
             for x in rkData['rankedgames']:
                 if 'mode' in x and str(x['mode']).upper() == mode.upper():
@@ -4760,13 +5006,13 @@ class PUG(commands.Cog):
             else:
                 g_limit = len(games)
             if len(matchref):
-                msg = 'Most recent {0} {1} ranked games (search criteria: `{2}`):\n'.format(g_limit,mode,matchref)
+                msg = f'Most recent {g_limit} {mode} ranked games (search criteria: `{matchref}`):\n'
             else:
-                msg = 'Most recent {0} {1} ranked games:\n'.format(g_limit,mode)
+                msg = f'Most recent {g_limit} {mode} ranked games:\n'
         elif len(matchref):
-            msg = 'No games were found for mode: {0} and search criteria `{1}` please specify valid criteria.'.format(mode,matchref)
+            msg = f'No games were found for mode: {mode} and search criteria `{matchref}` please specify valid criteria.'
         else:
-            msg = 'No games were found for mode: {0}, please specify a valid mode.'.format(mode)
+            msg = f'No games were found for mode: {mode}, please specify a valid mode.'
         i = 0
         for g in games:
             teamred = []
@@ -4780,17 +5026,17 @@ class PUG(commands.Cog):
                 g_startdate = datetime.fromisoformat(g['startdate']).strftime('%a, %d/%b/%Y @ %H:%M')
                 for x in g['teamred']:
                     if g['capred']['id'] == x:
-                        teamred.append(players[x]+'({0})'.format(CAPSIGN))
+                        teamred.append(players[x]+f'({CAPSIGN})')
                     else:
                         teamred.append(players[x])
                 for x in g['teamblue']:
                     if g['capblue']['id'] == x:
-                        teamblue.append(players[x]+'({0})'.format(CAPSIGN))
+                        teamblue.append(players[x]+f'({CAPSIGN})')
                     else:
                         teamblue.append(players[x])
-                msg = msg+'{0}) Match Ref: `{1}`; Started {2}, {3}\n'.format(i, g['gameref'],g_startdate,g_enddate)
-                msg = msg+'> Red team (RP: {0}): {1}\n> Blue team (RP: {2}): {3}\n'.format(g['rpred'],PLASEP.join(teamred),g['rpblue'],PLASEP.join(teamblue))
-                msg = msg+'> Score :red_square: {0} - {1} :blue_square:\n\n'.format(g['scorered'],g['scoreblue'])
+                msg = msg+f'{i}) Match Ref: `{g["gameref"]}`; Started {g_startdate}, {g_enddate}\n'
+                msg = msg+f'> Red team (RP: {g["rpred"]}): {PLASEP.join(teamred)}\n> Blue team (RP: {g["rpblue"]}): {PLASEP.join(teamblue)}\n'
+                msg = msg+f'> Score :red_square: {g["scorered"]} - {g["scoreblue"]} :blue_square:\n\n'
         if len(msg) > 4000:
             for m in msg.split('\n'):
                 if len(m):
@@ -4804,6 +5050,10 @@ class PUG(commands.Cog):
     @commands.check(isActiveChannel_Check)
     async def rkrp(self, ctx, mode: str = '', matchref: str = '', player: discord.Member = None):
         """Returns match and player RP reports"""
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+
         pid = re.search(r'<@(\d*)>', mode)
         if (pid):
             player = int(pid.group(1))
@@ -4818,20 +5068,20 @@ class PUG(commands.Cog):
         if (mode in [None,'','last']):
             if mode == 'last' and len(matchref) == 0:
                 matchref = mode
-            if self.pugInfo.ranked:
-                mode = self.pugInfo.mode
+            if pug.ranked:
+                mode = pug.mode
             else:
                 await ctx.send('A valid ranked mode must be specified.')
                 return True
         else:
-            if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
-                mode = self.pugInfo.mode # fix case
+            if pug.ranked and pug.mode.upper() == mode.upper():
+                mode = pug.mode # fix case
         teamRed = []
         teamBlue = []
         reports = []
-        if self.isPugInProgress and self.pugInfo.ranked and len(matchref) == 0 and player in ['',None]:
-            teamBlue = self.pugInfo.blue
-            teamRed = self.pugInfo.red
+        if self.isPugInProgress and pug.ranked and len(matchref) == 0 and player in ['',None]:
+            teamBlue = pug.blue
+            teamRed = pug.red
         matchref = re.sub(r'\'|"', '', matchref)
         if (len(teamRed) > 0 and len(teamBlue) > 0) or (len(matchref) > 0 and matchref not in ['player','']):
             reports = self.ratingsMatchReport(mode=mode,teamRed=teamRed,teamBlue=teamBlue,matchref=matchref)
@@ -4859,7 +5109,10 @@ class PUG(commands.Cog):
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
     async def rkvoidmatch(self, ctx, mode: str = '', matchref: str = ''):
-        if (self.pugInfo.pugLocked):
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            pug = self.getPugForChannel(channelId=self.activeChannel.id)
+        if (pug.pugLocked):
             await ctx.send('Matches cannot be voided while a game is in progress. Please try again later.')
             return True
         if (mode in [None,'']):
@@ -4868,35 +5121,35 @@ class PUG(commands.Cog):
         if (matchref in [None,'']):
             await ctx.send('A valid match reference must be specified.')
             return True
-        if self.pugInfo.ranked and self.pugInfo.mode.upper() == mode.upper():
-            mode = self.pugInfo.mode
+        if pug.ranked and pug.mode.upper() == mode.upper():
+            mode = pug.mode
         matchInfo = self.ratingsMatchInfo(mode,matchref)
         if matchInfo == {}:
             await ctx.send('The provided valid match reference could not be found.')
         else:
             started = datetime.fromisoformat(matchInfo['startdate'])
-            await ctx.send('{0} match `{1}` played on {2} at {3}...'.format(('Voiding' if matchInfo['completed'] else 'Re-establishing'),matchInfo['gameref'],started.strftime('%d/%m/%Y'),started.strftime('%H:%M:%S')))
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile)
-            rk = self.pugInfo.loadPugRatings(self.pugInfo.ratingsFile, True)
+            await ctx.send(f'{"Voiding" if matchInfo["completed"] else "Re-establishing"} match `{matchInfo["gameref"]}` played on {started.strftime("%d/%m/%Y")} at {started.strftime("%H:%M:%S")}...')
+            pug.savePugRatings(pug.ratingsFile)
+            rk = pug.loadPugRatings(pug.ratingsFile, True)
             if 'rankedgames' in rk:
                 for x in rk['rankedgames']:
                     if 'games' in x and 'mode' in x and x['mode'].upper() == mode.upper():
                         for g in x['games']:
                             if 'gameref' in g and g['gameref'].upper() == matchref.upper():
                                 g['completed'] = not g['completed']
-                                log.debug('rkvoidmatch() - Found match data in rk; completed={0}'.format(g['completed']))
-            self.pugInfo.savePugRatings(self.pugInfo.ratingsFile,rk)
-            self.pugInfo.setRankedMode(MODE_CONFIG[self.pugInfo.mode].isRanked, False)
+                                log.debug(f'rkvoidmatch() - Found match data in rk; completed={g["completed"]}')
+            pug.savePugRatings(pug.ratingsFile,rk)
+            pug.setRankedMode(MODE_CONFIG[pug.mode].isRanked, False)
             players = []
             players.extend(matchInfo['teamred'])
             players.extend(matchInfo['teamblue'])
             for p in players:
                 player = self.ratingsPlayerDataHandler('rkget', mode, p)
                 if player not in [None,{},'']:
-                    msg = self.ratingsPlayerDataHandler('rkrecalc',mode,p,0)
-                    await ctx.send('> Recalculated RP for {0}...\n> - Updated to last event: {1}'.format(player['dlastnick'],msg.split('\n')[-2].replace('> ','')))
+                    msg = str(self.ratingsPlayerDataHandler('rkrecalc',mode,p,0)).split("\n")[-2].replace("> ","")
+                    await ctx.send(f'> Recalculated RP for {player["dlastnick"]}...\n> - Updated to last event: {msg}')
                 else:
-                    await ctx.send('> Could not recalculate RP for ID `{0}`; player not found.'.format(p))
+                    await ctx.send(f'> Could not recalculate RP for ID `{p}`; player not found.')
         return True
 
     #########################################################################################
@@ -4928,7 +5181,7 @@ class PUG(commands.Cog):
         # Check if mode parameter is a valid mode
         if mode not in [None,'']:
             if mode.upper() in map(str.upper, MODE_CONFIG):
-                targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+                targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
                 if targetPug is None:
                     await ctx.send(f'Could not access pug for mode `{mode}`.')
                     return
@@ -4986,29 +5239,37 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Ignore)
-    async def promote(self, ctx):
+    async def promote(self, ctx, mode: str = ''):
         """Promotes the pug. Limited to once per minute alongside poke."""
         # TODO: Switch the use of these times of limits to use the "cooldown" decorator. see https://stackoverflow.com/questions/46087253/cooldown-for-command-on-discord-bot-python
+        if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
+        else:
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
         delay = 60
         # reusing lastpoketime, so both are limited to one of the two per 60s
         if (datetime.now() - self.lastPokeTime).total_seconds() < delay:
             return
         self.lastPokeTime = datetime.now()
-        await ctx.send('Hey @here it\'s PUG TIME!!!\n**{0}** needed for **{1}**!'.format(self.pugInfo.playersNeeded, self.pugInfo.desc))
+        await ctx.send(f'Hey @here it\'s PUG TIME!!!\n**{targetPug.playersNeeded}** needed for **{targetPug.desc}**!')
 
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Ignore)
-    async def poke(self, ctx):
+    async def poke(self, ctx, mode: str = ''):
         """Highlights those signed to pug. Limited to once per minute alongside promote."""
         # TODO: Switch the use of these times of limits to use the "cooldown" decorator. see https://stackoverflow.com/questions/46087253/cooldown-for-command-on-discord-bot-python
+        if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
+        else:
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
         minPlayers = 2
         delay = 60
-        if self.pugInfo.numPlayers < minPlayers or (datetime.now() - self.lastPokeTime).total_seconds() < delay:
+        if targetPug.numPlayers < minPlayers or (datetime.now() - self.lastPokeTime).total_seconds() < delay:
             return
         self.lastPokeTime = datetime.now()
-        await ctx.send('Poking those signed (you will be unable to poke for {0} seconds): {1}'.format(delay, self.pugInfo.format_all_players(number=False, mention=True)))
+        await ctx.send(f'Poking those signed (you will be unable to poke for {delay} seconds): {targetPug.format_all_players(number=False, mention=True)}')
 
     @commands.hybrid_command(aliases = ['serverlist'])
     @commands.guild_only()
@@ -5067,7 +5328,7 @@ class PUG(commands.Cog):
                                 for ip in dns.resolver.resolve(servermatch['dns'], 'A'):
                                     serverinfo['ip'] = ip.address
                             except:
-                                log.warning('DNS lookup failure for {0}'.format(serveraddr))
+                                log.warning(f'DNS lookup failure for {serveraddr}')
                             if 'port' in servermatch.groupdict():
                                 serverinfo['game_port'] = int(servermatch.groupdict()['port'])
                             else:
@@ -5127,30 +5388,40 @@ class PUG(commands.Cog):
             default_mode = default_mode if default_mode else MODE_DEFAULT
 
             for mode, pug in self.pugInstances[channelId].items():
-                players_str = f'{pug.numPlayers}/{pug.maxPlayers}'
                 status = ' :mega:' if mode == default_mode else ''
-                ranked_str = ' :scales:' if pug.ranked else ''
+                rankedStatus = ' :scales:' if pug.ranked else ''
                 server = pug.gameServer.format_current_serveralias if pug.gameServer else 'No server assigned'
-                maps = '\n{0}'.format(pug.maps.format_current_maplist) if pug.mapsReady else ''
-                player_list = ''
+                serverAddr = f'\n:wireless: `{pug.gameServer.format_gameServerURL}` - spec pass: `{pug.gameServer.spectatorPassword}`' if pug.gameServer and pug.mapsReady else ''
+                maps = f'\n:m: {pug.maps.format_current_maplist}' if pug.mapsReady else ''
+                playerList = ''
                 if len(pug.red) or len(pug.blue):
-                    player_list = '\n:red_circle: {0}\n:blue_circle: {1}'.format(', '.join([f'<@{player.id}>' for player in pug.red]), ', '.join([f'<@{player.id}>' for player in pug.blue]))
+                    playerList = f'\n:red_circle: {", ".join([f"<@{player.id}>" for player in pug.red])}\n:blue_circle: {", ".join([f"<@{player.id}>" for player in pug.blue])}'
                 if len(pug.players) and not pug.captainsReady:
                     if len(pug.red) or len(pug.blue):
-                        player_list = '{0}, unpicked players:'.format(player_list)
-                    player_list = '\n{0}{1}'.format(player_list,', '.join([f'<@{player.id}>' for player in pug.players])) if len(pug.players) else '\nNo players'
-                activePugs.append((mode, players_str, status, ranked_str, server, player_list, maps))
+                        playerList = f'{playerList}, unpicked players:'
+                    playerList = f'\n:crossed_swords: {playerList}{", ".join([f"<@{player.id}>" for player in pug.players])}' if len(pug.players) else '\nNo players'
+                activePugs.append((mode, pug.numPlayers, pug.maxPlayers, status, rankedStatus, server, playerList, maps, serverAddr))
         
         if not activePugs:
             await ctx.send('No active pugs in this channel.')
             return
-        embedInfo = discord.Embed(color=discord.Color.greyple(),title='Active Pugs in #{0}'.format(ctx.message.channel.name))
-        for mode, players, status, ranked, server, player_list, maps in activePugs:
+        embedInfo = discord.Embed(color=discord.Color.greyple(),title=f'Active Pugs in #{ctx.message.channel.name}')
+        for mode, playerCount, maxPlayers, status, ranked, server, playerList, maps, serverAddr in activePugs:
+            players = f'{playerCount}/{maxPlayers}'
             mode_name = MODE_CONFIG[mode].name if mode in MODE_CONFIG else mode
-            embedInfo.add_field(name=f'{mode} ({mode_name}) on {server}',value=f'`{players}` players{status}{ranked}:{player_list}{maps}',inline=False)
+            flag = ':wavy_dash: ' if len(status) == 0 else f'{status} '
+            if (1/maxPlayers)*playerCount >= 0.5:
+                embedInfo.color = discord.Color.orange()
+                flag = ':eyes: '
+            if (1/maxPlayers)*playerCount >= 0.75:
+                embedInfo.color = discord.Color.red()
+                flag = ':bangbang: '
+            if len(maps) > 0:
+                embedInfo.color = discord.Color.green()
+                flag = ':star2: '
+            embedInfo.add_field(name=f'{mode} ({mode_name}) on {server}',value=f'{flag}`{players}` players{ranked}{":" if playerList else "."}{playerList}{maps}{serverAddr}',inline=False)
         embedInfo.set_footer(text='Use `!join <mode>` or `!leave <mode>` to join/leave a specific mode.')
         await ctx.send(embed=embedInfo)
-
 
     @commands.hybrid_command()
     @commands.guild_only()
@@ -5158,18 +5429,8 @@ class PUG(commands.Cog):
     @commands.check(isPugInProgress_Warn)
     async def setmode(self, ctx, mode: str):
         """Sets mode of the pug (deprecated)"""
-        await ctx.send('Use !join <mode> to join a specific mode, or !leave <mode> to leave a specific mode.')
+        await ctx.send('Use !join <mode> to join or start a specific mode, or !leave <mode> to leave a specific mode.')
         return True
-        # Legacy---
-        if self.pugInfo.captainsReady:
-            await ctx.send('Pug already in picking mode. Reset if you wish to change mode.')
-        else:
-            result = self.pugInfo.setMode(mode)
-            # Send result message to channel regardless of success/failure
-            await ctx.send(result[1])
-            # If mode successfully changed, process pug status
-            if result[0]:
-                await self.processPugStatus(ctx)
 
     @commands.hybrid_command()
     @commands.guild_only()
@@ -5178,13 +5439,13 @@ class PUG(commands.Cog):
     async def setplayers(self, ctx, mode, limit: str = '12'):
         """Sets number of players"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         elif limit != '' and limit.upper() in map(str.upper, MODE_CONFIG):
                 targetMode = limit
                 limit = str(mode)
-                targetPug = self.getPugForModeInChannel(ctx.message.channel.id, targetMode)
+                targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=targetMode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked != True and targetPug.captainsReady:
             await ctx.send('Pug already in picking mode. Reset if you wish to change player limit.')
@@ -5192,10 +5453,12 @@ class PUG(commands.Cog):
             targetPug.setMaxPlayers(int(limit))
             await ctx.send('Player limit set to ' + str(targetPug.maxPlayers))
             await self.processPugStatus(ctx, targetPug)
+        elif (int(limit) % 2 == 0 and int(limit) < len(targetPug.players) + len(targetPug.red) + len(targetPug.blue)):
+            await ctx.send(f'Player limit cannot be set to {limit} as there are already {len(targetPug.players) + len(targetPug.red) + len(targetPug.blue)} players signed up.')
         else:
-            await ctx.send('Player limit unchanged. Players must be a multiple of 2 + between {0} and {1}'.format(str(MODE_CONFIG[targetPug.mode].minPlayers),str(MODE_CONFIG[targetPug.mode].maxPlayers)))
+            await ctx.send(f'Player limit unchanged. Players must be a multiple of 2 + between {MODE_CONFIG[targetPug.mode].minPlayers} and {MODE_CONFIG[targetPug.mode].maxPlayers}')
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(aliases = ['adminsp','asp'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
@@ -5203,15 +5466,15 @@ class PUG(commands.Cog):
     async def adminsetplayers(self, ctx, mode: str = '', limit: int = 12):
         """Force sets number of players"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked != True and targetPug.captainsReady:
             await ctx.send('Pug already in picking mode. Reset if you wish to change player limit.')
         elif (limit % 2 == 0):
             targetPug.setMaxPlayers(limit)
-            await ctx.send('Player limit forcefully set to {0}. ({1} min: {2}, max: {3})'.format(str(targetPug.maxPlayers),targetPug.mode,str(MODE_CONFIG[targetPug.mode].minPlayers),str(MODE_CONFIG[targetPug.mode].maxPlayers)))
+            await ctx.send(f'Player limit forcefully set to {targetPug.maxPlayers}. ({targetPug.mode} min: {MODE_CONFIG[targetPug.mode].minPlayers}, max: {MODE_CONFIG[targetPug.mode].maxPlayers})')
             await self.processPugStatus(ctx, targetPug)
         else:
             await ctx.send('Player limit unchanged. Players must be a multiple of 2')
@@ -5224,24 +5487,24 @@ class PUG(commands.Cog):
     async def setmaps(self, ctx, mode: str = '', limit: int=5):
         """Sets number of maps"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
             try:
                 limit = int(mode)
             except ValueError:
                 pass
 
         if (targetPug.ranked and targetPug.ratings is not None and 'maps' in targetPug.ratings and 'fixedpicklimit' in targetPug.ratings['maps'] and targetPug.ratings['maps']['fixedpicklimit'] > 0):
-            await ctx.send('Map limit is fixed to {0} maps within this ranked mode.'.format(str(targetPug.maps.maxMaps)))
+            await ctx.send(f'Map limit is fixed to {targetPug.maps.maxMaps} maps within this ranked mode.')
             return
         if (targetPug.maps.setMaxMaps(limit)):
-            await ctx.send('Map limit set to ' + str(targetPug.maps.maxMaps))
+            await ctx.send(f'Map limit set to {targetPug.maps.maxMaps}')
             if targetPug.teamsReady:
                 # Only need to do this if maps already being picked, as it could mean the pug needs to be setup.
                 await self.processPugStatus(ctx, targetPug)
         else:
-            await ctx.send('Map limit unchanged. Map limit is {}'.format(targetPug.maps.maxMapsLimit))
+            await ctx.send(f'Map limit unchanged. Map limit is {targetPug.maps.maxMapsLimit}')
 
     @commands.hybrid_command(aliases = ['adminendmatch','endmatch'])
     @commands.guild_only()
@@ -5250,22 +5513,22 @@ class PUG(commands.Cog):
     async def rkendmatch(self, ctx, mode: str = '', matchCode: str = ''):
         """Forcefully ends the current ranked match, with a match code for post-match processing."""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if (matchCode not in [None, ''] and targetPug.ranked and (targetPug.pugLocked or targetPug.gameServer.matchInProgress) or matchCode.lower() == 'force'):
             if matchCode.lower() == 'force':
                 await ctx.send('Force ending match without match code. RP may not be updated correctly.')
                 if targetPug.gameServer.matchCode in [None,'','N/A'] or (targetPug.gameServer.matchCode not in [None,'','N/A'] and len(targetPug.gameServer.matchCode) < 6):
-                    targetPug.gameServer.matchCode = 'temp-{0}'.format(datetime.now().strftime('%Y%m%d%H%M%S'))
+                    targetPug.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
                 await self.endMatch(False)
                 return
-            endpoint = '{0}?&matchcode={1}'.format(targetPug.ratingsSyncAPI['matchDataURL'],matchCode)
-            log.debug('rksync() - Fetching provided match from API: {0}'.format(endpoint))
+            endpoint = f'{targetPug.ratingsSyncAPI["matchDataURL"]}?&matchcode={matchCode}'
+            log.debug(f'rksync() - Fetching provided match from API: {endpoint}')
             syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
             if syData not in [{},None,''] and 'match_summary' in syData:
-                await ctx.send('Ending match with valid match code `{0}`'.format(matchCode) if matchCode else '')
+                await ctx.send(f'Ending match with valid match code `{matchCode}`' if matchCode else '')
                 targetPug.gameServer.matchCode = matchCode
                 await self.endMatch(False)
             else:
@@ -5280,7 +5543,7 @@ class PUG(commands.Cog):
         """Resets the pug. Players must rejoin and server is reset even if a match is running. Use with care."""
         reset = False
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
             targetPug = self.pugInfo
 
@@ -5307,9 +5570,9 @@ class PUG(commands.Cog):
                 self.resetRequestBlue = False
                 reset = True
         if reset:
-            await ctx.send('Removing all signed players: {}'.format(targetPug.format_all_players(number=False, mention=True)))
+            await ctx.send(f'Removing all signed players: {targetPug.format_all_players(number=False, mention=True)}')
             if len(targetPug.queuedPlayers):
-                await ctx.send('Removing all queued players: {}'.format(targetPug.format_queued_players(number=False, mention=True)))
+                await ctx.send(f'Removing all queued players: {targetPug.format_queued_players(number=False, mention=True)}')
             if targetPug.resetPug(True):
                 await ctx.send('Pug Reset.')
                 await self.listpugs(ctx)
@@ -5321,9 +5584,9 @@ class PUG(commands.Cog):
     @commands.check(isActiveChannel_Check)
     async def retry(self, ctx, mode: str = ''):
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.gameServer.matchInProgress is False or targetPug.gameServer.gameServerOnDemand:
             retryAllowed = True
@@ -5343,9 +5606,9 @@ class PUG(commands.Cog):
     async def resetcaptains(self, ctx, mode: str = ''):
         """Resets back to captain mode. Any players or maps picked will be reset."""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked or targetPug.numCaptains < 1 or targetPug.pugLocked:
             return
@@ -5361,9 +5624,9 @@ class PUG(commands.Cog):
     async def queue(self, ctx, mode: str = ''):
         """Joins a queue of players for the next pug"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         await self.join(ctx, mode=targetPug.mode, notes='queue')
         return
@@ -5398,7 +5661,7 @@ class PUG(commands.Cog):
                     await ctx.send('No active pug found in this channel.')
                     return
                 if player in targetPug.queuedPlayers:
-                    await ctx.send('{0} is already queued for the next pug.'.format(display_name(player)))
+                    await ctx.send(f'{display_name(player)} is already queued for the next pug.')
                     return True
                 if targetPug.pugLocked or targetPug.playersReady:
                     flags = 'queue'
@@ -5407,19 +5670,19 @@ class PUG(commands.Cog):
                     notesmsg = ' immediately, as a pug is not yet running'
 
         if targetMode is not None:
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, targetMode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=targetMode)
             if targetPug is None:
                 await ctx.send(f'Could not access pug for mode `{targetMode}`.')
                 return
             notesmsg = f' to {MODE_CONFIG[targetMode].name}' if notesmsg == '' else notesmsg
         else:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
             if targetPug is None:
                 await ctx.send('No active pug found in this channel.')
                 return
             targetMode = targetPug.mode
 
-        canJoin, conflictMsg = self.handleMultiInstanceConflicts(player, ctx.message.channel.id, targetMode)
+        canJoin, conflictMsg = self.handleMultiInstanceConflicts(player=player, targetChannelId=ctx.message.channel.id, targetMode=targetMode)
         if not canJoin:
             await ctx.send(conflictMsg)
             return
@@ -5433,7 +5696,7 @@ class PUG(commands.Cog):
                     await ctx.send('Already added.')
                     return
                 else:
-                    await ctx.send('{0} could not be added - ineligible to join a ranked pug.'.format(display_name(player)))
+                    await ctx.send(f'{display_name(player)} could not be added - ineligible to join a ranked pug.')
                     return
         else:
             if not targetPug.addPlayer(player, flags):
@@ -5448,10 +5711,10 @@ class PUG(commands.Cog):
             self.trackPlayerJoin(player, ctx.message.channel.id, targetMode)
 
         if flags != 'queue':
-            await ctx.send('{0} was added{1}.'.format(display_name(player), notesmsg))
+            await ctx.send(f'{display_name(player)} was added{notesmsg}.')
             await self.listpugs(ctx)
         else:
-            await ctx.send('{0} was added{1}.'.format(display_name(player), notesmsg))
+            await ctx.send(f'{display_name(player)} was added{notesmsg}.')
         await self.processPugStatus(ctx, targetPug)
 
     @commands.hybrid_command(aliases=['l','lv','lva','lq'])
@@ -5477,7 +5740,7 @@ class PUG(commands.Cog):
                 return
             targetMode = targetPug.mode
         else:
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, targetMode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=targetMode)
             if targetPug is None:
                 await ctx.send(f'Could not access pug for mode `{targetMode}`.')
                 return
@@ -5490,18 +5753,18 @@ class PUG(commands.Cog):
                     if not self.tempQueuedPlayers[ctx.message.channel.id]:
                         del self.tempQueuedPlayers[ctx.message.channel.id]
                     self.trackPlayerLeave(player, ctx.message.channel.id, targetMode)
-                    await ctx.send('{0} has left the temporary queue.'.format(display_name(player)))
+                    await ctx.send(f'{display_name(player)} has left the temporary queue.')
                     return True
         
         if player in targetPug.queuedPlayers:
             targetPug.removePlayerFromPug(player)
             self.trackPlayerLeave(player, ctx.message.channel.id, targetMode)
-            await ctx.send('{0} has left the queue.'.format(display_name(player)))
+            await ctx.send(f'{display_name(player)} has left the queue.')
             return True
         if not targetPug.pugLocked:
             if targetPug.removePlayerFromPug(player):
                 self.trackPlayerLeave(player, ctx.message.channel.id, targetMode)
-                await ctx.send('{0} left.'.format(display_name(player)))
+                await ctx.send(f'{display_name(player)} left.')
                 await self.processPugStatus(ctx, targetPug)
         else:
             await self.isPugInProgress(ctx, True)
@@ -5514,18 +5777,18 @@ class PUG(commands.Cog):
     async def captain(self, ctx, mode: str = ''):
         """Volunteer to be a captain in the pug."""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
 
         if targetPug == None:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked or not targetPug.playersReady or targetPug.captainsReady or targetPug.gameServer.matchInProgress:
-            log.debug('!captain rejected: Players Ready = {0}, Captains Ready = {1}, Match In Progress {2}'.format(targetPug.playersReady,targetPug.captainsReady,targetPug.gameServer.matchInProgress))
+            log.debug(f'!captain rejected: Players Ready = {targetPug.playersReady}, Captains Ready = {targetPug.captainsReady}, Match In Progress = {targetPug.gameServer.matchInProgress}')
             return
 
         player = ctx.message.author
         if targetPug.setCaptain(player):
-            await ctx.send(player.mention + ' has volunteered as a captain!')
+            await ctx.send(f'{player.mention} has volunteered as a captain!')
             await self.processPugStatus(ctx, targetPug)
 
     @commands.hybrid_command(aliases=['randcap'])
@@ -5535,10 +5798,10 @@ class PUG(commands.Cog):
     async def randomcaptains(self, ctx, mode: str = ''):
         """Picks a random captain for each team without a captain."""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
 
         if targetPug == None:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked or not targetPug.playersReady or targetPug.captainsReady:
             return
@@ -5558,13 +5821,13 @@ class PUG(commands.Cog):
         captain = ctx.message.author
 
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
             if type(mode) is int:
                 players = (mode,) + players
                 
         if targetPug == None:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         # TODO: improve this, don't think we should use matchInProgress
         if targetPug.ranked or targetPug.teamsFull or not targetPug.captainsFull or not captain == targetPug.currentCaptainToPickPlayer or targetPug.pugLocked or targetPug.gameServer.matchInProgress:
@@ -5574,7 +5837,7 @@ class PUG(commands.Cog):
 
         if picks:
             if targetPug.teamsFull:
-                await ctx.send('Teams have been selected:\n{}'.format(targetPug.format_teams(mention=True)))
+                await ctx.send(f'Teams have been selected:\n{targetPug.format_teams(mention=True)}')
             await self.processPugStatus(ctx, targetPug)
 
     @commands.hybrid_command(aliases=['maplist'])
@@ -5584,16 +5847,16 @@ class PUG(commands.Cog):
         """Returns the list of maps to pick from"""
         targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         if targetPug == None:
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if (targetPug.ranked):
             if (str == "all" or mode == "all"):
-                msg = ['Ranked mode ({0}) will pick from the following underscored maps: '.format(targetPug.mode)]
+                msg = [f'Ranked mode ({targetPug.mode}) will pick from the following underscored maps: ']
                 msg.append(targetPug.maps.format_available_maplist)
             else:
-                msg = ['Ranked mode ({0}) will pick from the following map list: '.format(targetPug.mode)]
+                msg = [f'Ranked mode ({targetPug.mode}) will pick from the following map list: ']
                 msg.append(targetPug.maps.format_filtered_maplist)
         else:
             msg = ['Server map list is: ']
@@ -5609,7 +5872,7 @@ class PUG(commands.Cog):
         targetPug = None
 
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
             if type(mode) is int:
                 idx = int(mode)
@@ -5621,7 +5884,7 @@ class PUG(commands.Cog):
                 except ValueError:
                     pass
             # Find active pug
-            targetPug = self.getPugForChannel(ctx.message.channel.id)
+            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if (targetPug.ranked or targetPug.matchReady or not targetPug.teamsReady or captain != targetPug.currentCaptainToPickMap):
             # Skip if in ranked mode or not in captain mode with full teams or if the author is not the next map captain.
@@ -5635,7 +5898,7 @@ class PUG(commands.Cog):
         if not targetPug.pickMap(captain, mapIndex):
             await ctx.send('Map already picked. Please, pick a different map.')
         
-        msg = ['Maps chosen **({0} of {1})**:'.format(len(targetPug.maps), targetPug.maps.maxMaps)]
+        msg = [f'Maps chosen **({len(targetPug.maps)} of {targetPug.maps.maxMaps})**:']
         msg.append(targetPug.maps.format_current_maplist)
         await ctx.send(' '.join(msg))
         await self.processPugStatus(ctx, targetPug)
@@ -5652,10 +5915,11 @@ class PUG(commands.Cog):
         else:
             await ctx.send(self.pugInfo.format_last_pug)
 
-    @commands.hybrid_command(aliases=['pref','preference'])
+    @commands.hybrid_command(aliases=['pref','prefs','preference','preferences'])
     @commands.check(isActiveChannel_Check)
     async def prefer(self, ctx, mode: str='', maps: str=''):
         "Stores user preferences towards modes and maps."
+        await ctx.send('Preferences updated.' if self.setPlayerPreferences(player=ctx.author.id, mode=mode, maps=maps, save=True) else 'Could not update preferences. Try again later.')
         return True
 
     @commands.hybrid_command(aliases = ['setrep','repchan'])
@@ -5673,7 +5937,7 @@ class PUG(commands.Cog):
     async def mutereporter(self, ctx, mode: str = ''):
         """Mutes the UT Server Reporter until the next active pug. Admin only"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
                 
         if targetPug == None:
             targetPug = self.pugInfo
@@ -5692,7 +5956,7 @@ class PUG(commands.Cog):
     async def startreporter(self, ctx, mode: str = ''):
         """Force-starts the UT Server Reporter, whether an active pug is running or not. Admin only"""
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(ctx.message.channel.id, mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
                 
         if targetPug == None:
             targetPug = self.pugInfo
