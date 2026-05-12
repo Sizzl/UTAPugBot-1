@@ -32,7 +32,7 @@ from cogs import admin
 #31.AS-WorseThings_preview 32.AS-GekokujouAL][
 
 DEFAULT_PLAYERS = 12
-DEFAULT_MAPS = 7
+DEFAULT_MAPS = 5
 DEFAULT_PICKMODETEAMS = 1 # Fairer for even numbers (players should be even, 1st pick gets 1, 2nd pick gets 2)
 DEFAULT_PICKMODEMAPS = 3 # Fairer for odd numbers (maps are usually odd, so 2nd pick should get more picks)
 
@@ -1591,10 +1591,10 @@ class AssaultPug(PugTeams):
 
     @property
     def format_pug_short(self):
-        return f'**__{self.desc} [{len(self)}/{self.maxPlayers}] || {self.gameServer.gameServerName} || {self.maps.maxMaps} maps__**'
+        return f'**__{self.desc} [{len(self)}/{self.maxPlayers}] \|\| {self.gameServer.gameServerName} \|\| {self.maps.maxMaps} maps__**'
 
     def format_pug(self, number=True, mention=False):
-        return f'**__{self.desc} [{len(self)}/{self.maxPlayers}] || {self.gameServer.gameServerName} || {self.maps.maxMaps} maps:__**\n{self.format_all_players(number=number, mention=mention)}'
+        return f'**__{self.desc} [{len(self)}/{self.maxPlayers}] \|\| {self.gameServer.gameServerName} \|\| {self.maps.maxMaps} maps:__**\n{self.format_all_players(number=number, mention=mention)}'
 
     @property
     def format_match_is_ready(self):
@@ -2534,18 +2534,18 @@ class PUG(commands.Cog):
             # Create if needed and return
             return self.getPugForModeInChannel(channelId=channel.id, mode=mode)
 
-    def getAllPugsInChannel(self, channel):
+    def getAllPugsInChannel(self, channelId):
         """Get all pug instances in a channel.
         
         Args:
-            channel: Discord channel object
+            channelId: Discord channel ID
             
         Returns:
             dict[mode, AssaultPug] of all pugs in the channel, or empty dict if none
         """
-        if channel is None or channel.id not in self.pugInstances:
+        if channelId is None or channelId not in self.pugInstances:
             return {}
-        return self.pugInstances[channel.id]
+        return self.pugInstances[channelId]
 
     def getAllActivePugs(self):
         """Iterate over all active pug instances across all channels.
@@ -4122,7 +4122,7 @@ class PUG(commands.Cog):
             return
         await ctx.send('This is not an active PUG channel.')
 
-    @commands.command()
+    @commands.command(aliases=['aa','aap','adminaddplayer'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
@@ -4133,7 +4133,7 @@ class PUG(commands.Cog):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
-
+        showList = False
         for player in players:
             if targetPug.ranked:
                 if targetPug.checkRankedPlayersEligibility([player]):
@@ -4145,6 +4145,7 @@ class PUG(commands.Cog):
                             await ctx.send(f'Cannot add {display_name(player)}: They are already signed.')
                     else:
                         await ctx.send(f'{display_name(player)} is elgible for ranked play and was added by an admin.')
+                        showList = True
                         await self.listpugs(ctx)
                 else:
                     failed = True
@@ -4158,7 +4159,9 @@ class PUG(commands.Cog):
                         await ctx.send(f'Cannot add {display_name(player)}: They are already signed.')
                 else:
                     await ctx.send(f'{display_name(player)} was added by an admin.')
-                    await self.listpugs(ctx)
+                    showList = True
+        if showList:
+            await self.listpugs(ctx)
         if not failed:
             await self.processPugStatus(ctx, targetPug)
 
@@ -5428,8 +5431,8 @@ class PUG(commands.Cog):
                 status = ' :mega:' if mode == default_mode else ''
                 rankedStatus = ' :scales:' if pug.ranked else ''
                 server = pug.gameServer.format_current_serveralias if pug.gameServer else 'No server assigned'
-                serverAddr = f'\n:wireless: `{pug.gameServer.format_gameServerURL}` - spec pass: `{pug.gameServer.spectatorPassword}`' if pug.gameServer and pug.mapsReady else ''
-                maps = f'\n:m: {pug.maps.format_current_maplist}' if pug.mapsReady else ''
+                serverAddr = f'\n@ `{pug.gameServer.format_gameServerURL}` - spec pass: `{pug.gameServer.spectatorPassword}`' if pug.gameServer and pug.mapsReady else ''
+                maps = f'\nMaps: {pug.maps.format_current_maplist}' if pug.mapsReady else ''
                 playerList = ''
                 if len(pug.red) or len(pug.blue):
                     playerList = f'\n:red_circle: {", ".join([f"<@{player.id}>" for player in pug.red])}\n:blue_circle: {", ".join([f"<@{player.id}>" for player in pug.blue])}'
@@ -5437,26 +5440,22 @@ class PUG(commands.Cog):
                     if len(pug.red) or len(pug.blue):
                         playerList = f'{playerList}, unpicked players:'
                     playerList = f'\n:crossed_swords: {playerList}{", ".join([f"<@{player.id}>" for player in pug.players])}' if len(pug.players) else '\nNo players'
-                activePugs.append((mode, pug.numPlayers, pug.maxPlayers, status, rankedStatus, server, playerList, maps, serverAddr))
+                activePugs.append((mode, pug.maps.maxMaps, pug.numPlayers, pug.maxPlayers, status, rankedStatus, server, playerList, maps, serverAddr))
         
         if not activePugs:
             await ctx.send('No active pugs in this channel.')
             return
         embedInfo = discord.Embed(color=discord.Color.greyple(),title=f'Active Pugs in #{ctx.message.channel.name}')
-        for mode, playerCount, maxPlayers, status, ranked, server, playerList, maps, serverAddr in activePugs:
+        for mode, matchlength, playerCount, maxPlayers, status, ranked, server, playerList, maps, serverAddr in activePugs:
             players = f'{playerCount}/{maxPlayers}'
             mode_name = MODE_CONFIG[mode].name if mode in MODE_CONFIG else mode
-            flag = ':wavy_dash: ' if len(status) == 0 else f'{status} '
             if (1/maxPlayers)*playerCount >= 0.5:
                 embedInfo.color = discord.Color.orange()
-                flag = ':eyes: '
             if (1/maxPlayers)*playerCount >= 0.75:
                 embedInfo.color = discord.Color.red()
-                flag = ':bangbang: '
             if len(maps) > 0:
                 embedInfo.color = discord.Color.green()
-                flag = ':star2: '
-            embedInfo.add_field(name=f'{mode} ({mode_name}) on {server}',value=f'{flag}`{players}` players{ranked}{":" if playerList else "."}{playerList}{maps}{serverAddr}',inline=False)
+            embedInfo.add_field(name=f'{mode} ({mode_name}) on {server}',value=f'Best of `{matchlength}` maps. `{players}` players signed{ranked}{status}{":" if playerList else "."}{playerList}{maps}{serverAddr}',inline=False)
         embedInfo.set_footer(text='Use `!join <mode>` or `!leave <mode>` to join/leave a specific mode.')
         await ctx.send(embed=embedInfo)
 
@@ -5812,17 +5811,22 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['cap','сфзефшт'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
-    @commands.check(isPugInProgress_Ignore)
     async def captain(self, ctx, mode: str = ''):
         """Volunteer to be a captain in the pug."""
+        targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
 
         if targetPug == None:
+            for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
+                if not pug.ranked and pug.playersReady and not pug.captainsReady:
+                    targetPug = pug
+                    break
+        if targetPug == None:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked or not targetPug.playersReady or targetPug.captainsReady or targetPug.gameServer.matchInProgress:
-            log.debug(f'!captain rejected: Players Ready = {targetPug.playersReady}, Captains Ready = {targetPug.captainsReady}, Match In Progress = {targetPug.gameServer.matchInProgress}')
+            log.debug(f'!captain rejected for {targetPug.mode}: Players Ready = {targetPug.playersReady}, Captains Ready = {targetPug.captainsReady}, Match In Progress = {targetPug.gameServer.matchInProgress}')
             return
 
         player = ctx.message.author
@@ -5833,16 +5837,22 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['randcap'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
-    @commands.check(isPugInProgress_Ignore)
     async def randomcaptains(self, ctx, mode: str = ''):
         """Picks a random captain for each team without a captain."""
+        targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
 
         if targetPug == None:
+            for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
+                if not pug.ranked and pug.playersReady and not pug.captainsReady:
+                    targetPug = pug
+                    break
+        if targetPug == None:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
-        if targetPug.ranked or not targetPug.playersReady or targetPug.captainsReady:
+        if targetPug == None or targetPug.ranked or not targetPug.playersReady or targetPug.captainsReady:
+            log.debug(f'!randomcaptains rejected for {targetPug.mode if targetPug else "unknown"}: Players Ready = {targetPug.playersReady if targetPug else "unknown"}, Captains Ready = {targetPug.captainsReady if targetPug else "unknown"}, Match In Progress = {targetPug.gameServer.matchInProgress if targetPug else "unknown"}')
             return
 
         while not targetPug.captainsReady:
@@ -5856,9 +5866,9 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def pick(self, ctx, mode: str = '', *players: int): # hybrid_command doesn't support an undefined number of params - may need adjusting
-        """Picks a player for a team in the pug."""
+        """Picks a player for a team in the pug. FIX ME"""
         captain = ctx.message.author
-
+        targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
@@ -5866,10 +5876,18 @@ class PUG(commands.Cog):
                 players = (mode,) + players
                 
         if targetPug == None:
+            # Find active pug
+            for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
+                if not pug.ranked and pug.captainsFull:
+                    targetPug = pug
+                    break
+
+        if targetPug == None:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         # TODO: improve this, don't think we should use matchInProgress
-        if targetPug.ranked or targetPug.teamsFull or not targetPug.captainsFull or not captain == targetPug.currentCaptainToPickPlayer or targetPug.pugLocked or targetPug.gameServer.matchInProgress:
+        if targetPug == None or targetPug.ranked or targetPug.teamsFull or not targetPug.captainsFull or not captain == targetPug.currentCaptainToPickPlayer or targetPug.pugLocked:
+            log.debug(f'!pick rejected for {targetPug.mode if targetPug else "unknown"}: Ranked = {targetPug.ranked if targetPug else "unknown"}, Teams Full = {targetPug.teamsFull if targetPug else "unknown"}, Captains Full = {targetPug.captainsFull if targetPug else "unknown"}, Current Picking Captain = {targetPug.currentCaptainToPickPlayer if targetPug else "unknown"}, Pug Locked = {targetPug.pugLocked if targetPug else "unknown"}, Match In Progress = {targetPug.gameServer.matchInProgress if targetPug else "unknown"}')
             return
 
         picks = list(itertools.takewhile(functools.partial(targetPug.pickPlayer, captain), (x - 1 for x in players)))
@@ -5923,10 +5941,16 @@ class PUG(commands.Cog):
                 except ValueError:
                     pass
             # Find active pug
+            for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
+                if not pug.ranked and pug.teamsReady:
+                    targetPug = pug
+                    break
+        if targetPug == None:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
-        if (targetPug.ranked or targetPug.matchReady or not targetPug.teamsReady or captain != targetPug.currentCaptainToPickMap):
+        if (targetPug == None or targetPug.ranked or targetPug.matchReady or not targetPug.teamsReady or captain != targetPug.currentCaptainToPickMap):
             # Skip if in ranked mode or not in captain mode with full teams or if the author is not the next map captain.
+            log.debug(f'!map rejected for {targetPug.mode if targetPug else "unknown"}: Ranked = {targetPug.ranked if targetPug else "unknown"}, Match Ready = {targetPug.matchReady if targetPug else "unknown"}, Teams Ready = {targetPug.teamsReady if targetPug else "unknown"}, Current Captain = {targetPug.currentCaptainToPickMap if targetPug else "unknown"}')
             return
 
         mapIndex = idx - 1 # offset as users see them 1-based index.
@@ -5975,6 +5999,7 @@ class PUG(commands.Cog):
     @commands.check(admin.hasManagerRole_Check)
     async def mutereporter(self, ctx, mode: str = ''):
         """Mutes the UT Server Reporter until the next active pug. Admin only"""
+        targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
                 
@@ -5994,6 +6019,7 @@ class PUG(commands.Cog):
     @commands.check(admin.hasManagerRole_Check)
     async def startreporter(self, ctx, mode: str = ''):
         """Force-starts the UT Server Reporter, whether an active pug is running or not. Admin only"""
+        targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
                 
