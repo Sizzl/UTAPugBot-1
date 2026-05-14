@@ -43,6 +43,8 @@ DEFAULT_GAME_SERVER_NAME = 'Unknown Server'
 DEFAULT_ACCOUNT_URL = 'https://utassault.net/discord/link'
 DEFAULT_POST_SERVER = 'https://utassault.net'
 DEFAULT_POST_TOKEN = 'NoToken'
+DEFAULT_STATS_URL = f'{DEFAULT_POST_SERVER}/pugstats/index.php?p=utapugrecent'
+DEFAULT_STATS_MATCH_URL = f'{DEFAULT_POST_SERVER}/pugstats/index.php?p=uta_match&matchcode='
 DEFAULT_THUMBNAIL_SERVER = f'{DEFAULT_POST_SERVER}/pugstats/images/maps/'
 DEFAULT_CONFIG_FILE = 'servers/config.json'
 DEFAULT_RATING_FILE = 'players/ratings.json'
@@ -1495,8 +1497,9 @@ class AssaultPug(PugTeams):
 
         self.maps = PugMaps(numMaps, pickModeMaps, self.ranked, self.servers[self.serverIndex].configMaps)
         self.roleRequired = None
-        self.lastPugStr = 'No last pug info available.'
-        self.lastPugTimeStarted = None
+        self.lastPug = {}
+        self.lastPugStr = 'No last pug info available.' # deprecated
+        self.lastPugTimeStarted = None # deprecated
         self.pugLocked = False
         self.pugTempLocked = 0 # 0 = not locked, 1 = temp locked, 2 = long locked (e.g. server/players busy in another match)
 
@@ -1635,6 +1638,34 @@ class AssaultPug(PugTeams):
             return 'No last pug info available.'
 
     @property
+    def format_last_pug_for_embed(self):
+        if self.lastPug not in [None,'',{}]:
+            ago = getDuration(datetime.fromisoformat(self.lastPug['timestarted']), datetime.now())
+            if 'players' in self.lastPug:
+                red = self.lastPug['teamred']
+                blue = self.lastPug['teamblue']
+                servername = self.lastPug['servername']
+                serveraddr = self.lastPug['serveraddr']
+                playerList = f':red_circle: {red}\n:blue_circle: {blue}'
+                maplist = self.lastPug['maplist']
+                server = f'{servername} (`{serveraddr}`)'
+                stats = ''
+                completed = ' (incomplete)' if not(self.lastPug['completed']) else ''
+                length = self.lastPug['length']
+                players = self.lastPug['players']
+                maxplayers = self.lastPug['maxplayers']
+                if 'matchcode' in self.lastPug and not(str(self.lastPug['matchcode']).startswith('temp')):
+                    matchcode = self.lastPug['matchcode']
+                    stats = f' ([stats]({DEFAULT_STATS_MATCH_URL}{matchcode}))'
+                pugstr = f'Played {ago}{completed}{stats}:\nBest of `{length}` maps. `{players}/{maxplayers}` players signed:\n{playerList}\n{maplist}\n{server}'
+                pass
+            elif 'pugstr' in self.lastPug:
+                pugstr = self.format_last_pug
+        else:
+            pugstr = self.format_last_pug
+        return pugstr
+
+    @property
     def format_list_servers(self):
         indexedServers = ((i,s) for i,s in enumerate(self.servers, 1) if s)
         fmt = []
@@ -1706,6 +1737,8 @@ class AssaultPug(PugTeams):
                 if self.gameServer.matchCode in [None,'','N/A']:
                     self.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
                 matchCode = self.gameServer.matchCode
+
+            # Legacy last pug storage (deprecated)
             fmt.append(f'Last **{self.desc}** ({{}} ago)')
             fmt.append(self.format_teams())
             if self.ranked:
@@ -1714,6 +1747,27 @@ class AssaultPug(PugTeams):
             self.lastPugStr = '\n'.join(fmt)
             self.lastPugTimeStarted = datetime.now()
             self.lastPlayedMode = self.mode
+
+            # New last pug storage
+            self.lastPug = {
+                'timestarted' : datetime.now(),
+                'timeended' : '',
+                'pugstr' : '\n'.join(fmt), # legacy
+                'length' : self.maps.maxMaps,
+                'players' : self.numPlayers,
+                'maxplayers' : self.maxPlayers,
+                'teamred' : self.format_red_players(),
+                'teamblue' : self.format_blue_players(),
+                'scorered' : redScore,
+                'scoreblue': blueScore,
+                'maplist' : f'{self.maps.format_current_maplist}',
+                'rankedinfo' : f'Red RP: {str(self.redPower)}; Blue RP: {str(self.bluePower)}' if self.ranked else '',
+                'servername': self.gameServer.format_current_serveralias,
+                'serveraddr' : self.gameServer.format_gameServerURL,
+                'matchcode' : matchCode,
+                'completed': False
+            }
+
             if self.ranked:
                 log.debug(f'storeLastPug(viaReset={viaReset}) - Calling via matchReady - storeRankedPug({self.mode},{matchCode},{redScore},{blueScore},{self.lastPugTimeStarted})')
                 if self.storeRankedPug(self.mode, matchCode, redScore, blueScore, self.lastPugTimeStarted.isoformat(), False):
@@ -1722,10 +1776,16 @@ class AssaultPug(PugTeams):
                     log.debug('storeRankedPug() - Failed to store game successfully via storeLastPug matchReady')
             return True
         elif len(appendstr):
+            # Legacy storage (deprecated, but function will still use appendstr to determine updates)
             fmt = []
             fmt.append(self.lastPugStr)
             fmt.append(appendstr)
             self.lastPugStr = '\n'.join(fmt)
+            # New last pug schema:
+            self.lastPug['scorered'] = redScore
+            self.lastPug['scoreblue'] = blueScore
+            self.lastPug['timeended'] = datetime.now()
+            self.lastPug['completed'] = not(viaReset)
             if self.ranked:
                 log.debug(f'storeLastPug(viaReset={viaReset}) - Calling storeRankedPug({self.mode},{matchCode},{redScore},{blueScore},{self.lastPugTimeStarted})')
                 if viaReset: # do not track as a ranked game if reset before completion
@@ -2568,7 +2628,7 @@ class PUG(commands.Cog):
         """
         self.modePugLastActivity[(channelId, mode)] = datetime.now()
 
-    def trackPlayerJoin(self, player, channelId, mode):
+    def trackPlayerJoin(self, player, channelId, mode, updateConfig: bool = False):
         """Track that a player joined a pug.
         
         Args:
@@ -2581,6 +2641,8 @@ class PUG(commands.Cog):
             self.playerInstances[player_id] = set()
         self.playerInstances[player_id].add((channelId, mode))
         self.updatePugActivity(channelId, mode)
+        if updateConfig:
+            self.savePugConfig(self.configFile)
 
     def trackPlayerLeave(self, player, channelId, mode):
         """Track that a player left a pug.
@@ -2659,7 +2721,7 @@ class PUG(commands.Cog):
             return next(iter(activePugs))[0]  # Return first channelId
         return None
 
-    def trackPlayerJoin(self, player, channelId, mode=None):
+    def _trackPlayerJoin(self, player, channelId, mode=None):
         """Track a player joining a pug instance."""
         if mode is None:
             # For backward compatibility, assume default mode
@@ -2674,7 +2736,7 @@ class PUG(commands.Cog):
         # Update activity timestamp
         self.modePugLastActivity[pug_key] = datetime.now()
 
-    def trackPlayerLeave(self, player, channelId, mode=None):
+    def _trackPlayerLeave(self, player, channelId, mode=None):
         """Track a player leaving a pug instance."""
         if mode is None:
             # For backward compatibility, assume default mode
@@ -2986,7 +3048,7 @@ class PUG(commands.Cog):
                     self.playerPreferences = info['pug']['playerprefs']
                 # Load per-channel PUG states
                 if 'channels' in info['pug'] and isinstance(info['pug']['channels'], dict):
-                    for channelId_str, channelInfo in info['pug']['channels'].items():
+                    for channelId_str, gameInfo in info['pug']['channels'].items():
                         try:
                             channelId = int(channelId_str)
                         except Exception:
@@ -2994,54 +3056,51 @@ class PUG(commands.Cog):
                         channel = discord.Client.get_channel(self.bot, channelId)
                         if not channel:
                             continue
-                        self.setActiveChannel(channel)
-                        pug = self.getPugForChannel(channelId)
-                        if 'current' in channelInfo and isinstance(channelInfo['current'], dict):
-                            current = channelInfo['current']
-                            modelimit = 0
-                            if 'mode' in current:
-                                pug = self.getPugForModeInChannel(channelId=channelId, mode=current['mode'], ignoreMissing=True)
-                                if pug is None:
-                                    pug = self.getPugForChannel(channelId=channelId)
-                                pug.modeLimit = modelimit
-                                pug.setMode(current['mode'],True) # TEST ME
-                            else:
-                                pug = self.getPugForChannel(channelId=channelId)
-                            if 'modelimit' in current:
-                                pug.modeLimit = current['modelimit']
-                            if 'playerlimit' in current:
-                                pug.setMaxPlayers(current['playerlimit'])
-                            if 'maxmaps' in current:
-                                pug.maps.setMaxMaps(current['maxmaps'])
-                            if 'timesaved' in current:
-                                try:
-                                    time_saved = datetime.fromisoformat(current['timesaved'])
-                                except Exception:
-                                    time_saved = None
-                                if time_saved and (datetime.now() - time_saved).total_seconds() < 60 and 'signed' in current:
-                                    players = current['signed']
-                                    if players:
-                                        for playerId in players:
-                                            player = channel.guild.get_member(playerId)
-                                            if player:
-                                                pug.addPlayer(player)
-                        if 'lastpug' in channelInfo and isinstance(channelInfo['lastpug'], dict):
-                            lastpug = channelInfo['lastpug']
-                            if 'pugstr' in lastpug:
-                                pug.lastPugStr = lastpug['pugstr']
-                            if 'timestarted' in lastpug:
-                                try:
-                                    pug.lastPugTimeStarted = datetime.fromisoformat(lastpug['timestarted'])
-                                except Exception:
-                                    pug.lastPugTimeStarted = None
-                        # Restore player tracking after loading pug
-                        self.restoreMultiInstancePlayers(pug)
+                        if self.activeChannel is None:
+                            self.setActiveChannel(channel)
+                        for modeIndex, modeData in gameInfo.items():
+                            pug = None
+                            log.debug(f'loadPugConfig() - iterating through pug.channels.{str(modeIndex)}: {str(modeData)}')
+                            pug = self.getPugForModeInChannel(channelId=channelId, mode=modeData['mode'])
+                            if pug is not None:
+                                if 'modelimit' in modeData:
+                                    pug.modeLimit = modeData['modelimit']
+                                if 'playerlimit' in modeData:
+                                    pug.setMaxPlayers(modeData['playerlimit'])
+                                if 'maxmaps' in modeData:
+                                    pug.maps.setMaxMaps(modeData['maxmaps'])
+                                if 'server' in modeData:
+                                    pug.gameServer.useServer(index=-1,autostart=False,byref=modeData['server'])
+                                if 'timesaved' in modeData:
+                                    try:
+                                        time_saved = datetime.fromisoformat(modeData['timesaved'])
+                                    except Exception:
+                                        time_saved = None
+                                    if time_saved and (datetime.now() - time_saved).total_seconds() < 60 and 'signed' in modeData:
+                                        players = modeData['signed']
+                                        if players:
+                                            for playerId in players:
+                                                player = channel.guild.get_member(playerId)
+                                                if player:
+                                                    pug.addPlayer(player)
+                                if 'lastpug' in modeData and isinstance(modeData['lastpug'], dict):
+                                    lastpug = modeData['lastpug']
+                                    pug.lastPug = lastpug # store the whole object for embed
+                                    if 'pugstr' in lastpug:
+                                        pug.lastPugStr = lastpug['pugstr'] # legacy handling
+                                    if 'timestarted' in lastpug:
+                                        try:
+                                            pug.lastPugTimeStarted = datetime.fromisoformat(lastpug['timestarted'])
+                                        except Exception:
+                                            pug.lastPugTimeStarted = None
+                                self.restoreMultiInstancePlayers(pug)
+                                log.debug(f'loadPugConfig() - restored game state for {pug.mode} in {pug.channelId}')
                     if 'activechannelid' in info['pug']:
                         channel = discord.Client.get_channel(self.bot, info['pug']['activechannelid'])
                         if channel and channel.id in self.pugInstances:
                             self.activeChannel = channel
                 elif 'activechannelid' in info['pug']:
-                    # Fall back to single-channel mode
+                    # Fall back to single-channel mode, legacy config
                     channelId = info['pug']['activechannelid']
                     channel = discord.Client.get_channel(self.bot, channelId)
                     log.info(f'Loaded active channel id: {channelId} => channel: {channel}')
@@ -3125,19 +3184,23 @@ class PUG(commands.Cog):
                 # Create pug state for this mode
                 pug_cfg = {
                     'timesaved': datetime.now().isoformat(),
+                    'signed': [],
                     'mode': pug.mode,
                     'modelimit': pug.modeLimit,
                     'playerlimit': pug.maxPlayers,
-                    'maxmaps': pug.maps.maxMaps
+                    'maxmaps': pug.maps.maxMaps,
+                    'server': pug.gameServer.gameServerRef
                 }
                 if len(pug.players) > 0:
                     pug_cfg['signed'] = [p.id for p in pug.all if p not in [None]]
                 pug_cfg['lastpug'] = {}
-                if pug.lastPugTimeStarted:
+                if pug.lastPugTimeStarted: # legacy
                     pug_cfg['lastpug']['timestarted'] = pug.lastPugTimeStarted.isoformat()
-                if pug.lastPugStr:
+                if pug.lastPugStr: # legacy
                     pug_cfg['lastpug']['pugstr'] = pug.lastPugStr
-                    
+                if pug.lastPug not in [None,'',{}] and 'serveraddr' in pug.lastPug:
+                    pug_cfg['lastpug'] = pug.lastPug
+
                 # Store under mode key
                 info['pug']['channels'][str(channelId)][mode] = pug_cfg
             pug = self.getPugForChannel(self.activeChannel.id)
@@ -3612,11 +3675,41 @@ class PUG(commands.Cog):
                 else:
                     self.customStaticEmojis[f':{x.name}:'] = x.id
 
+    def getPlayerPreferences(self, player: int):
+        """Gets the preferences for a given player
+        
+        Args:
+            player: ID of the Discord user
+            
+        Returns:
+            tuple (mode, maps)
+        """
+        if self.configLoadTime == 0:
+            # Config not loaded yet, can't get preferences.
+            return False
+        if player not in self.playerPreferences.items():
+            log.debug(f'getPlayerPreferences({player}) - Discord user preferences not present.')
+            return False
+        log.debug(f'getPlayerPreferences({player}) - returning tuple: {str(self.playerPreferences[player])}')
+        return self.playerPreferences[player]
+    
     def setPlayerPreferences(self, player: int, mode: str = '', maps: str = '', save: bool = False):
+        """Sets the preferences for a given player
+        
+        Args:
+            player: ID of the Discord user
+            mode: preferred mode
+            maps: preferred maplist
+            save: forces a config save
+            
+        Returns:
+            bool: True (where successful), False (where unsuccessful)
+        """
         if self.configLoadTime == 0:
             # Config not loaded yet, can't set preferences.
             return False
         if player not in self.playerPreferences.items():
+            log.debug(f'getPlayerPreferences({player}) - Discord user preferences not present; creating entry')
             self.playerPreferences[player] = {
                 'mode': '',
                 'maps': []
@@ -3669,7 +3762,7 @@ class PUG(commands.Cog):
                 return embedInfo
             else:
                 matchref = matchInfo['gameref']
-                embedInfo.description = f'Match reference: `{matchref}` ([stats]({DEFAULT_POST_SERVER}/pugstats/index.php?p=uta_match&matchcode={matchref}))'
+                embedInfo.description = f'Match reference: `{matchref}` ([stats]({DEFAULT_STATS_MATCH_URL}{matchref}))'
                 started = datetime.fromisoformat(matchInfo['startdate'])
                 embedInfo.add_field(name='Match started',value=started.strftime('%d/%b/%Y @ %H:%M'),inline=True)
                 if matchInfo['completed']:
@@ -4212,7 +4305,7 @@ class PUG(commands.Cog):
             if targetPug.gameServer.lastSetupResult == 'Match In Progress':
                 targetPug.pugLocked = True
             else:
-                self.processPugStatus(ctx, pug=targetPug) # FIX ME - check whether pugTempLocked also needs to be reset
+                await self.processPugStatus(ctx, pug=targetPug) # FIX ME - check whether pugTempLocked also needs to be reset
         else:
             await ctx.send(f'Selected server **{idx}** could not be activated.')
     
@@ -5741,6 +5834,11 @@ class PUG(commands.Cog):
                     notesmsg = ' to the queue for the next pug'
                 else:
                     notesmsg = ' immediately, as a pug is not yet running'
+        if targetMode is None:
+            prefs = self.getPlayerPreferences(player.id)
+            log.debug('join() - returned player preferences')
+            if prefs:
+                targetMode = prefs['mode']
 
         if targetMode is not None:
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=targetMode)
@@ -5781,7 +5879,7 @@ class PUG(commands.Cog):
                     return
 
         if flags != 'queue':
-            self.trackPlayerJoin(player, ctx.message.channel.id, targetMode)
+            self.trackPlayerJoin(player=player, channelId=ctx.message.channel.id, mode=targetMode, updateConfig=True)
 
         if flags != 'queue':
             await ctx.send(f'{display_name(player)} was added{notesmsg}.')
@@ -6021,16 +6119,25 @@ class PUG(commands.Cog):
     @commands.check(isActiveChannel_Check)
     async def last(self, ctx, mode: str = ''):
         """Shows the last pug info."""
+        targetPug = None
+        activePugs = []
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
-            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
+            targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode, ignoreMissing=True)
+            if targetPug is not None:
+                activePugs.append(targetPug)
         else:
-            targetPug = self.getPugForChannel(channelId=ctx.message.channel.id) # consider showing all instead.
-        if targetPug.gameServer.matchInProgress:
-            msg = ['Last match not complete...']
-            msg.append(targetPug.format_match_in_progress)
-            await ctx.send('\n'.join(msg))
-        else:
-            await ctx.send(targetPug.format_last_pug)
+            for mode, pug in self.getAllPugsInChannel(ctx.message.channel.id).items():
+                activePugs.append(pug)
+
+        linebreak = '\n' if len(activePugs) > 1 else ''
+        embedInfo = discord.Embed(color=discord.Color.blurple(),title=f':timer: Previous Pugs in #{ctx.message.channel.name}')
+        for targetPug in activePugs:
+            mode_name = MODE_CONFIG[targetPug.mode].name if targetPug.mode in MODE_CONFIG else targetPug.mode
+            pughdr = f'{targetPug.mode} ({mode_name})'
+            pugstr = f'{targetPug.format_last_pug_for_embed}{linebreak}'
+            embedInfo.add_field(name=pughdr, value=pugstr, inline=False)
+        embedInfo.url = DEFAULT_STATS_URL
+        await ctx.send(embed=embedInfo)
 
     @commands.hybrid_command(aliases=['pref','prefs','preference','preferences'])
     @commands.check(isActiveChannel_Check)
