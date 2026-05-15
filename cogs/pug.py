@@ -1698,7 +1698,7 @@ class AssaultPug(PugTeams):
             if self.parent and serverRef in self.parent.serverLocks:
                 existing_lock = self.parent.serverLocks[serverRef]
                 log.debug(f'setupPug() - Server {serverRef} is already locked by channel {existing_lock[0]} mode {existing_lock[1]}')
-                return False
+                return False, 'locked'
             
             # Try to set up 5 times with a 5s delay between attempts.
             result = False
@@ -1722,9 +1722,9 @@ class AssaultPug(PugTeams):
                         # Generate a temporary match code which can be updated later
                         self.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
                     self.storeLastPug(matchCode=self.gameServer.matchCode)
-                    return True
+                    return True, 'ok'
             self.pugTempLocked = 0
-        return False
+        return False, 'failed'
 
     def storeLastPug(self, appendstr: str = '', redScore: int = 0, blueScore: int = 0, matchCode: str = '', viaReset: bool = False):
         if self.matchReady:
@@ -2728,34 +2728,6 @@ class PUG(commands.Cog):
             return next(iter(activePugs))[0]  # Return first channelId
         return None
 
-    def _trackPlayerJoin(self, player, channelId, mode=None):
-        """Track a player joining a pug instance."""
-        if mode is None:
-            # For backward compatibility, assume default mode
-            _, pug = self.getDefaultPugByActivity(channelId)
-            mode = pug.mode if channelId in self.pugInstances else MODE_DEFAULT
-        
-        pug_key = (channelId, mode)
-        if player.id not in self.playerInstances:
-            self.playerInstances[player.id] = set()
-        self.playerInstances[player.id].add(pug_key)
-        
-        # Update activity timestamp
-        self.modePugLastActivity[pug_key] = datetime.now()
-
-    def _trackPlayerLeave(self, player, channelId, mode=None):
-        """Track a player leaving a pug instance."""
-        if mode is None:
-            # For backward compatibility, assume default mode
-            _, pug = self.getDefaultPugByActivity(channelId)
-            mode = pug.mode if channelId in self.pugInstances else MODE_DEFAULT
-        
-        pug_key = (channelId, mode)
-        if player.id in self.playerInstances:
-            self.playerInstances[player.id].discard(pug_key)
-            if not self.playerInstances[player.id]:
-                del self.playerInstances[player.id]
-
     def handleMultiInstanceConflicts(self, player, targetChannelId, targetMode):
         """Handle conflicts when a player tries to join multiple pugs.
         
@@ -2774,20 +2746,24 @@ class PUG(commands.Cog):
         return True, None
 
     def pushMultiInstancePlayers(self, channelId, activeMode):
-        """Removes players from the queue of non-active games while an active game is underway"""
+        """Puts a hold on players in the queues of non-active games while an active game is underway"""
         if channelId not in self.pugInstances:
             return False, f'No pugs found for channel ID {channelId}'
         playerList = []
         for mode, pug in self.pugInstances[channelId].items():
             if mode == activeMode:
                 playerList = pug.players + pug.queuedPlayers + pug.red + pug.blue
+                activeServer = pug.gameServer.gameServerRef
                 continue
-        if len(playerList):
-            for mode, pug in self.pugInstances[channelId].items():
-                if mode != activeMode:
+        
+        for mode, pug in self.pugInstances[channelId].items():
+            if mode != activeMode:
+                if pug.gameServer.gameServerRef == activeServer:
+                    pug.pugTempLocked = 2 # set long-lock due to same server being used
+                if len(playerList):
                     for player in pug.players:
                         if player in playerList:
-                            self.trackPlayerLeave(player, channelId, mode)
+                            #self.trackPlayerLeave(player, channelId, mode)
                             pug.pugTempLocked = 2 # set long-lock to prevent matchmaking while current game is active
                             if channelId not in self.tempQueuedPlayers:
                                 self.tempQueuedPlayers[channelId] = []
@@ -2802,12 +2778,16 @@ class PUG(commands.Cog):
         for mode, pug in self.pugInstances[channelId].items():
             if mode != activeMode:
                 if channelId in self.tempQueuedPlayers:
+                    log.error(f'popMultiInstancePlayers() - Enumerating tempQueuedPlayers: {str(self.tempQueuedPlayers[channelId])}')
                     for player, data in self.tempQueuedPlayers[channelId]:
                         if 'mode' in data and str(data['mode']).upper() == str(mode).upper():
                             try:
                                 self.trackPlayerJoin(player, channelId, mode)
+                                data = {}
+                                player = 0
                             except Exception as e:
                                 log.error(f'popMultiInstancePlayers() - Error re-queuing player {player} to mode {mode} in channel {channelId}: {e}')
+                    log.error(f'popMultiInstancePlayers() - Final tempQueuedPlayers: {str(self.tempQueuedPlayers[channelId])}')
                 if pug.pugTempLocked > 1:
                     log.error(f'popMultiInstancePlayers() - Removed long-lock from {mode} pug in channel {channelId}')
                     pug.pugTempLocked = 0
@@ -3093,7 +3073,8 @@ class PUG(commands.Cog):
                                                 player = channel.guild.get_member(playerId)
                                                 if player:
                                                     pug.addPlayer(player)
-                                        # FIX ME - trigger a check here to process the pug; if running, grab lastpug info
+                                        if pug.ranked and pug.playerQueueFull:
+                                            self.processPugStatus(ctx=channel, pug=pug) # consider checking whether already running
                                 if 'lastpug' in modeData and isinstance(modeData['lastpug'], dict):
                                     lastpug = modeData['lastpug']
                                     pug.lastPug = lastpug # store the whole object for embed
@@ -3185,7 +3166,9 @@ class PUG(commands.Cog):
                 info['pug']['reporterchannelid'] = self.utReporterChannel.id
             else:
                 info['pug']['reporterchannelid'] = 0
-            prevChannelData = info['pug']['channels']
+            prevChannelData = {}
+            if 'channels' in info['pug']:
+                prevChannelData = info['pug']['channels']
             info['pug']['channels'] = {}
             activeModes = []
             for channelId, mode, pug in self.getAllActivePugs():
@@ -3308,12 +3291,13 @@ class PUG(commands.Cog):
         if not pug.playersFull:
             # Not filled, nothing to do.
             return
-
+        holdMessage = f'[**{pug.mode}**] Match is currently on hold while another game is in progress on the selected server or with the selected players.'
         # Work backwards from match ready.
         # Note match is ready once players are full, captains picked, players picked and maps picked.
         if pug.mapsReady and pug.matchReady:
             if pug.pugTempLocked > 1:
-                await ctx.send(f'[**{pug.mode}**] Match is currently on hold while another game is in progress on the selected server or with the selected players.')
+                if ctx is not None:
+                    await ctx.send(holdMessage)
                 return
             elif pug.pugTempLocked > 0:
                 # Avoid repeating a setup when multiple conditions are true
@@ -3324,10 +3308,13 @@ class PUG(commands.Cog):
                 self.ratingsLock = True
                 await ctx.send(msg)
             if pug.gameServer.gameServerOnDemand and not pug.gameServer.gameServerOnDemandReady:
-                await ctx.send(f'Waiting for {pug.gameServer.gameServerName} to be ready for action...')
-            if pug.setupPug():
+                if ctx is not None:
+                    await ctx.send(f'Waiting for {pug.gameServer.gameServerName} to be ready for action...')
+            setupPug = pug.setupPug()
+            if setupPug[0]:
                 await self.sendPasswordsToTeams(self.activeChannel.id, pug.mode)
-                await ctx.send(f'[**{pug.mode}**] {pug.format_match_is_ready}')
+                if ctx is not None:
+                    await ctx.send(f'[**{pug.mode}**] {pug.format_match_is_ready}')
                 pug.gameServer.utQueryConsoleWatermark = pug.gameServer.format_new_watermark
                 pug.gameServer.utQueryData = {}
                 pug.gameServer.utQueryReporterActive = True
@@ -3336,7 +3323,13 @@ class PUG(commands.Cog):
                 self.resetRequestBlue = False # only need to reset this here because we only care about this when a match is in progress.
                 self.pushMultiInstancePlayers(self.activeChannel.id, pug.mode) # Move any players from other pugs in the same channel to temp storage while match is in progress
             else:
-                await ctx.send(f'[**{pug.mode}**] **PUG Setup Failed**. Use **!retry** to attempt setting up again with current configuration, or **!reset** to start again from the beginning.')
+                if setupPug[1].lower() == 'locked':
+                    pug.pugTempLocked = 2 # enforce long temporary lock
+                    if ctx is not None:
+                        await ctx.send(holdMessage)
+                else:
+                    if ctx is not None:
+                        await ctx.send(f'[**{pug.mode}**] **PUG Setup Failed**. Use **!retry** to attempt setting up again with current configuration, or **!reset** to start again from the beginning.')
             return
 
         if pug.teamsReady:
@@ -4346,7 +4339,19 @@ class PUG(commands.Cog):
             if targetPug.gameServer.lastSetupResult == 'Match In Progress':
                 targetPug.pugLocked = True
             else:
-                await self.processPugStatus(ctx, pug=targetPug) # FIX ME - check whether pugTempLocked also needs to be reset
+                tempLocked = False
+                for activeMode, pug in self.pugInstances[ctx.message.channel.id].items():
+                    if mode != activeMode:
+                        if pug.gameServer.gameServerRef == targetPug.gameServer.gameServerRef:
+                            if pug.matchReady or pug.pugLocked:
+                                targetPug.pugTempLocked = 2 # set long-lock on the mode being altered due to server clash against already in-progress game
+                                tempLocked = True
+                            else:
+                                pug.pugTempLocked = 2 # set long-lock on other pug due to same server being used
+                                tempLocked = True
+                if not tempLocked:
+                    pass # consider differentiating between locks for players and servers by iterating over tempQueuedPlayers
+                await self.processPugStatus(ctx, pug=targetPug)
         else:
             await ctx.send(f'Selected server **{idx}** could not be activated.')
     
@@ -5494,16 +5499,17 @@ class PUG(commands.Cog):
             for _, mode, pug in self.getAllActivePugs():
                 targetPugs.append(pug)
         for pug in targetPugs:
-            await self.queryServerStats(cacheonly=True, pug=pug)
-            if pug.gameServer.utQueryEmbedCache != {}:
-                embedInfo = discord.Embed().from_dict(pug.gameServer.utQueryEmbedCache)
-                # Strip objectives from the card data
-                for x, f in enumerate(embedInfo.fields):
-                    if 'Objectives' in f.name:
-                        embedInfo.remove_field(x)
-                await ctx.send(embed=embedInfo)
-            else:
-                await ctx.send(pug.gameServer.format_game_server_status)
+            if pug.pugTempLocked < 2:
+                await self.queryServerStats(cacheonly=True, pug=pug)
+                if pug.gameServer.utQueryEmbedCache != {}:
+                    embedInfo = discord.Embed().from_dict(pug.gameServer.utQueryEmbedCache)
+                    # Strip objectives from the card data
+                    for x, f in enumerate(embedInfo.fields):
+                        if 'Objectives' in f.name:
+                            embedInfo.remove_field(x)
+                    await ctx.send(embed=embedInfo)
+                else:
+                    await ctx.send(pug.gameServer.format_game_server_status)
 
     @commands.hybrid_command()
     @commands.guild_only()
@@ -5601,7 +5607,7 @@ class PUG(commands.Cog):
                 rankedStatus = ' :scales:' if pug.ranked else ''
                 server = pug.gameServer.format_current_serveralias if pug.gameServer else 'No server assigned'
                 if pug.pugTempLocked > 1:
-                    serverAddr = '\n**Status**: Pug is currently on hold while another match is in progress on the selected server. '
+                    serverAddr = '\n**Status**: Pug is currently on hold while another match is in progress. '
                 elif pug.gameServer and pug.matchReady and pug.pugTempLocked < 2 and pug.pugLocked:
                     serverAddr = f'\n@ `{pug.gameServer.format_gameServerURL}` - spec pass: `{pug.gameServer.spectatorPassword}`'
                 elif pug.gameServer and pug.matchReady and pug.pugTempLocked < 2 and not pug.pugLocked:
@@ -5819,11 +5825,14 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def retry(self, ctx, mode: str = ''):
+        targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
             targetPug = self.getPugForModeInChannel(channelId=ctx.message.channel.id, mode=mode)
         else:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
-
+        if targetPug == None:
+            await ctx.send('Could not find a valid, failed PUG to retry. Use `!retry <mode>` to specify a game to re-attempt setup for.')
+            return
         if targetPug.gameServer.matchInProgress is False or targetPug.gameServer.gameServerOnDemand:
             retryAllowed = True
         else:
@@ -6002,13 +6011,13 @@ class PUG(commands.Cog):
         if ctx.message.channel.id in self.tempQueuedPlayers:
             tempPlayers = self.tempQueuedPlayers[ctx.message.channel.id]
             for i, (tempPlayer, flags) in enumerate(tempPlayers):
-                if tempPlayer.id == player.id:
+                if tempPlayer.id == player.id and 'mode' in flags and flags['mode'].upper() == mode.upper():
                     self.tempQueuedPlayers[ctx.message.channel.id].pop(i)
                     if not self.tempQueuedPlayers[ctx.message.channel.id]:
                         del self.tempQueuedPlayers[ctx.message.channel.id]
                     self.trackPlayerLeave(player, ctx.message.channel.id, targetMode)
-                    await ctx.send(f'{display_name(player)} has left the temporary queue.')
-                    return True
+                    #await ctx.send(f'{display_name(player)} has left the temporary queue.')
+                    #return True
         
         if player in targetPug.queuedPlayers:
             targetPug.removePlayerFromPug(player)
