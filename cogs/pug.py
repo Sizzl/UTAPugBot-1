@@ -4232,19 +4232,19 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['limitmodes'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def modelimit(self, ctx, modeGroup: str = ''):
+    async def modelimit(self, ctx, modegroup: str = ''):
         """Limits which modes can be selected in this channel. Admin only."""
         if ctx.message.channel.id in self.pugInstances:
             self.setActiveChannel(ctx.message.channel)
             pug = self.getPugForChannel(ctx.message.channel.id)
-            if modeGroup.upper() == 'ALL' or int(modeGroup) == 0:
+            if modegroup.upper() == 'ALL' or int(modegroup) == 0:
                 pug.modeLimit = 0
                 await ctx.send(f'Mode limit removed in {ctx.message.channel.mention}.')
                 self.savePugConfig(self.configFile)
                 return
-            elif int(modeGroup) > 0:
-                pug.modeLimit = int(modeGroup)
-            await ctx.send(f'Mode limit set to group \'{modeGroup}\' in {ctx.message.channel.mention}')
+            elif int(modegroup) > 0:
+                pug.modeLimit = int(modegroup)
+            await ctx.send(f'Mode limit set to group \'{modegroup}\' in {ctx.message.channel.mention}')
             self.savePugConfig(self.configFile)
             return
         await ctx.send('This is not an active PUG channel.')
@@ -5742,7 +5742,7 @@ class PUG(commands.Cog):
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     @commands.check(admin.hasManagerRole_Check)
-    async def rkendmatch(self, ctx, mode: str = '', matchCode: str = ''):
+    async def rkendmatch(self, ctx, mode: str = '', matchcode: str = ''):
         """Forcefully ends the current ranked match, with a match code for post-match processing."""
         targetPug = None
         if mode != '' and mode.upper() in map(str.upper, MODE_CONFIG):
@@ -5750,20 +5750,20 @@ class PUG(commands.Cog):
         else:
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
-        if (matchCode not in [None, ''] and targetPug is not None and targetPug.ranked and (targetPug.pugLocked or targetPug.gameServer.matchInProgress) or matchCode.lower() == 'force'):
-            if matchCode.lower() == 'force':
+        if (matchcode not in [None, ''] and targetPug is not None and targetPug.ranked and (targetPug.pugLocked or targetPug.gameServer.matchInProgress) or matchcode.lower() == 'force'):
+            if matchcode.lower() == 'force':
                 await ctx.send('Force ending match without match code. RP may not be updated correctly.')
                 if targetPug.gameServer.matchCode in [None,'','N/A'] or (targetPug.gameServer.matchCode not in [None,'','N/A'] and len(targetPug.gameServer.matchCode) < 6):
                     targetPug.gameServer.matchCode = f'temp-{datetime.now().strftime("%Y%m%d%H%M%S")}'
                 await self.endMatch(False)
                 self.ratingsLock = False
                 return
-            endpoint = f'{targetPug.ratingsSyncAPI["matchDataURL"]}?&matchcode={matchCode}'
+            endpoint = f'{targetPug.ratingsSyncAPI["matchDataURL"]}?&matchcode={matchcode}'
             log.debug(f'rksync() - Fetching provided match from API: {endpoint}')
             syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
             if syData not in [{},None,''] and 'match_summary' in syData:
-                await ctx.send(f'Ending match with valid match code `{matchCode}`' if matchCode else '')
-                targetPug.gameServer.matchCode = matchCode
+                await ctx.send(f'Ending match with valid match code `{matchcode}`' if matchcode else '')
+                targetPug.gameServer.matchCode = matchcode
                 await targetPug.gameServer.endMatch(False)
                 self.ratingsLock = False
             else:
