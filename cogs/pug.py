@@ -5976,14 +5976,23 @@ class PUG(commands.Cog):
             await ctx.send(f'{display_name(player)} was added{notesmsg}.')
         await self.processPugStatus(ctx, targetPug)
 
-    @commands.hybrid_command(aliases=['l','lv','lva','lq'])
+    @commands.hybrid_command(aliases=['lva'])
+    @commands.guild_only()
+    @commands.check(isActiveChannel_Check)
+    async def leave_all(self, ctx):
+        """Leaves all queues that are not currently active."""
+        player = ctx.message.author
+        for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
+            if not pug.pugLocked:
+                await self.leave(ctx, mode)
+
+    @commands.hybrid_command(aliases=['l','lv','lq'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
     async def leave(self, ctx, mode: str = ''):
         """Leaves the pug. Optionally specify a mode (e.g., !leave proAS) to leave a specific mode's pug."""
         player = ctx.message.author
         targetMode = None
-        
         if mode not in [None, '']:
             if mode.upper() in map(str.upper, MODE_CONFIG):
                 targetMode = next((key for key, _ in MODE_CONFIG.items() if key.upper()==mode.upper()), None)
@@ -6021,12 +6030,12 @@ class PUG(commands.Cog):
         if player in targetPug.queuedPlayers:
             targetPug.removePlayerFromPug(player)
             self.trackPlayerLeave(player, ctx.message.channel.id, targetMode)
-            await ctx.send(f'{display_name(player)} has left the queue.')
+            await ctx.send(f'{display_name(player)} has left the queue for {targetMode}.')
             return True
         if not targetPug.pugLocked:
             if targetPug.removePlayerFromPug(player):
                 self.trackPlayerLeave(player, ctx.message.channel.id, targetMode)
-                await ctx.send(f'{display_name(player)} left.')
+                await ctx.send(f'{display_name(player)} left {targetMode}.')
                 await self.processPugStatus(ctx, targetPug)
         else:
             await self.isPugInProgress(ctx, True)
