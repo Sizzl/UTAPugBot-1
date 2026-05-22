@@ -4521,6 +4521,24 @@ class PUG(commands.Cog):
         else:
             await ctx.send(f'**{map}** could not be removed. Is it in the list?')
 
+    @commands.hybrid_command(aliases=['adminunlock','unblock','unlock', 'rmlk'])
+    @commands.check(admin.hasManagerRole_Check)
+    @commands.check(isActiveChannel_Check)
+    async def adminunblock(self, ctx, mode: str = ''):
+        """Unblocks the server for a given mode. USE WITH CAUTION AS THIS MAY INTERRUPT GAMES. Admin only"""
+        pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
+        if pug is None:
+            await ctx.send(f'**{mode}** could not be unblocked. Please confirm input is correct.')
+            return
+        mode = pug.mode
+        if pug.pugTempLocked > 1:
+            pug.pugTempLocked = 0
+            await ctx.send(f'**{mode}** is now unlocked.')
+            self.processPugStatus(ctx, pug)
+        else:
+            await ctx.send(f'**{mode}** is not currently locked.')
+    
+
     @commands.hybrid_command()
     @commands.check(admin.hasManagerRole_Check)
     @commands.check(isActiveChannel_Check)
@@ -5969,21 +5987,17 @@ class PUG(commands.Cog):
         if flags != 'queue':
             self.trackPlayerJoin(player=player, channelId=ctx.message.channel.id, mode=targetMode, updateConfig=True)
 
-        if flags != 'queue':
-            await ctx.send(f'{display_name(player)} was added{notesmsg}.')
-            await self.listpugs(ctx)
-        else:
-            await ctx.send(f'{display_name(player)} was added{notesmsg}.')
+        await ctx.send(f'[**{targetMode}**] {display_name(player)} was added{notesmsg}.')
         await self.processPugStatus(ctx, targetPug)
 
-    @commands.hybrid_command(aliases=['lva'])
+    @commands.hybrid_command(aliases=['lva','leave_all'])
     @commands.guild_only()
     @commands.check(isActiveChannel_Check)
-    async def leave_all(self, ctx):
+    async def leaveall(self, ctx):
         """Leaves all queues that are not currently active."""
         player = ctx.message.author
         for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
-            if not pug.pugLocked:
+            if not pug.pugLocked and (not pug.ranked and not pug.matchReady):
                 await self.leave(ctx, mode)
 
     @commands.hybrid_command(aliases=['l','lv','lq'])
