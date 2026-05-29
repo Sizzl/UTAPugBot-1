@@ -4805,7 +4805,6 @@ class PUG(commands.Cog):
     @commands.command(aliases=['clearmaplist'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkclearmaps(self, ctx, mode: str = ''):
         """Clears all available maps from a ranked mode maplist. Parameters: GameMode"""
         if (mode in [None,'']):
@@ -4845,7 +4844,6 @@ class PUG(commands.Cog):
     @commands.command(aliases=['rkaddmap'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkaddmaps(self, ctx, mode: str = '', *maps: str):
         """Adds maps to a ranked mode maplist. Parameters: GameMode Map:Order:Weight"""
         if (mode in [None,'']):
@@ -4917,7 +4915,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rklimit','rksetlimit', 'rksetmaps','rksetmaplimit'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkmaplimit(self, ctx, mode: str = '', limit: int = 5, shuffle: str = ''):
         """Sets the pick limit and shuffle mode for a ranked mode maplist."""
         if (mode in [None,''] or limit in [None, '']):
@@ -4969,7 +4966,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmapsim','rksimmap'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkmapsimulation(self, ctx, mode: str = MODE_RANKED_DEFAULT, count=5):
         """Simulates a given number of auto-picks for a given ranked mode. Example: !rkmapsim rASPlus 5"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -4989,7 +4985,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkresetmaps','rkresetmappri','rkmapresetpri','rkmapresetdesirability'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkresetmapdesirability(self, ctx, mode: str = MODE_RANKED_DEFAULT):
         """Resets map desirability to defaults within an active ranked mode."""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -5011,7 +5006,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmapboost','rkboost'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkincreasemapdesirability(self, ctx, mode: str = '', map: str = '', factor: int = 2):
         """Inceases map desirability within an active ranked mode. Parameters: Map Factor, e.g. AS-Ballistic 2"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -5036,7 +5030,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmapnerf','rknerf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkdecreasemapdesirability(self, ctx, mode: str = '', map: str = '', divisor: int = 2):
         """Decreases map desirability within an active ranked mode. Parameters: Map Divisor, e.g. AS-Bridge 2"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -5061,7 +5054,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkmodeconf','rkmodeconfig'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkconf(self, ctx, mode: str = '', capmode: int = 0, role: discord.Role=None, window: int = 0):
         """Configures ranked mode core settings."""
         if (mode in [None,'']):
@@ -5108,7 +5100,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkscoreconfig','rkscoreconf'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkscoring(self, ctx, mode: str = '', scoremode: str = 'permap', teamwin: int = 0, teamlose: int = 0, capwin: int = 0, caplose: int = 0, volcapwin: int = 0, volcaplose: int = 0):
         """Configures ranked mode scoring settings."""
         if (mode in [None,'']):
@@ -5166,7 +5157,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rklist'])
     @commands.guild_only()
-    @commands.check(isActiveChannel_Check)
     async def rkrecent(self, ctx, mode: str = '', last: int = 5, matchref: str = '', completed: str = ''):
         """Returns recent ranked matches"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -5245,7 +5235,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rkreport'])
     @commands.guild_only()
-    @commands.check(isActiveChannel_Check)
     async def rkrp(self, ctx, mode: str = '', matchref: str = '', player: discord.Member = None):
         """Returns match and player RP reports"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -5305,7 +5294,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rkvoid'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkvoidmatch(self, ctx, mode: str = '', matchref: str = ''):
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
         if pug is None:
