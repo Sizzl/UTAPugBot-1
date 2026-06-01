@@ -810,6 +810,7 @@ class GameServer:
         if self.allServers == DEFAULT_SERVER_LIST:
             self.validateServers()
         parent.parent.cachedServers = self.allServers
+        parent.parent.cachedServersTime = datetime.now()
         self.updateServerStatus()
         
         # Stream GameSpy Unreal Query data using UDP sockets to send packets to the query port of the target server, then
@@ -1438,6 +1439,10 @@ class GameServer:
     def checkServerRotation(self):
         # An imprecise science here, as where there is a mismatch between number of rotation items and weeks in a year,
         # the pattern may break when crossing over between week 52 and week 1 at new year.
+        self.validateServers()
+        self.parent.parent.cachedServers = self.allServers
+        self.parent.parent.cachedServersTime = datetime.now()
+        self.updateServerStatus()
         if len(self.gameServerRotation) > 0:
             # Extended the input a little, rather than simply week number, it's a combination of yearweek (e.g., 202201 - 202252),
             # which works better with smaller rotation pools
@@ -2405,6 +2410,7 @@ class PUG(commands.Cog):
         self.customAnimatedEmojis = {}
         self.utReporterChannel = None
         self.cachedServers = None
+        self.cachedServersTime = 0
         self.configLoadTime = 0
         self.configFile = configFile
         self.ratingsFile = DEFAULT_RATING_FILE
@@ -3736,7 +3742,7 @@ class PUG(commands.Cog):
             self.playerPreferences[str(player)]['mode'] = mode
             targetPug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
             if targetPug is not None:
-                modemaps = targetPug.gameServer.maps.filteredMapsList.copy()
+                modemaps = targetPug.maps.filteredMapsList.copy()
         if len(maps) > 0:
             maplist = maps.replace(';',',').replace('/',',').split(',')
             validmaps = []
