@@ -5991,6 +5991,7 @@ class PUG(commands.Cog):
         """Leaves all queues that are not currently active."""
         player = ctx.message.author
         for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
+            log.debug(f'Processing leaveall for {player.display_name} in mode {mode} - Pug Locked: {pug.pugLocked}, Ranked: {pug.ranked}, Match Ready: {pug.matchReady}')
             if not pug.pugLocked and (not pug.ranked and not pug.matchReady):
                 await self.leave(ctx, mode)
 
