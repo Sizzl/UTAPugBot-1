@@ -4561,7 +4561,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rksave(self, ctx):
         """Calls for a configuration save"""
         if self.ratingsLock:
@@ -4575,7 +4574,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['setrk','rankset','addrk','rankadd','rkadd'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkset(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT, rating: int = 500, externalpid: int = 0):
         """Adds or sets a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus) Weight(e.g., 500)"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -4592,7 +4590,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rmrk','rkrm','rkdelete','rankdel','rankremove'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkdel(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT):
         """Removes a player rating within a game mode: PlayerNick GameMode(e.g. rASPlus)"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -4609,7 +4606,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command()
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rksync(self, ctx, mode: str = MODE_RANKED_DEFAULT, item: str = '', direction: str = 'outbound', redcap: discord.Member = None, bluecap: discord.Member = None):
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
         if pug is None:
@@ -4720,7 +4716,6 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     async def rkrecalc(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT, seed: int = 0, pid: int = 0):
         """Recalculates RP of a player: PlayerNick GameMode(e.g. rASPlus) <optional seed value>"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
@@ -4745,7 +4740,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['rkgamesim','rksim'])
     @commands.guild_only()
-    @commands.check(isActiveChannel_Check)
     async def rkgamesimulation(self, ctx, player1=None, player2=None, player3=None, player4=None, player5=None, player6=None, player7=None, player8=None, player9=None, player10=None, player11=None, player12=None, player13=None, player14=None):
         """Simulates player picks for the active ranked mode. Use player:(+-)100 modifiers to test changes."""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=self.pugInfo.mode, ignoreMissing=True)
@@ -6020,10 +6014,6 @@ class PUG(commands.Cog):
             if targetPug is None:
                 await ctx.send(f'Could not access pug for mode `{targetMode}`.')
                 return
-        
-        if targetPug.pugLocked:
-            await ctx.send('Match is in progress, players cannot leave the game at this time.')
-            return
 
         if ctx.message.channel.id in self.tempQueuedPlayers:
             tempPlayers = self.tempQueuedPlayers[ctx.message.channel.id]
@@ -6047,6 +6037,9 @@ class PUG(commands.Cog):
                 await ctx.send(f'{display_name(player)} left {targetMode}.')
                 await self.processPugStatus(ctx, targetPug)
         else:
+            if targetPug.pugLocked:
+                await ctx.send('Match is in progress, players cannot leave the game at this time.')
+                return
             await self.isPugInProgress(ctx, True)
         return True
     
