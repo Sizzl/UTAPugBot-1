@@ -766,7 +766,7 @@ class GameServer:
         self.thumbnailServer = DEFAULT_THUMBNAIL_SERVER
 
         # All servers
-        if parent is not None and parent.parent is not None and parent.parent.cachedServers is not None and len(parent.parent.cachedServers):
+        if parent is not None and parent.parent is not None and parent.parent.cachedServers is not None and (datetime.now() - parent.parent.cachedServersTime) < timedelta(minutes=10):
             log.debug('GameServer(): Using cached server list from grandparent PUG instance.')
             self.allServers = parent.parent.cachedServers
         else:
@@ -807,10 +807,11 @@ class GameServer:
         self.lastUpdateTime = datetime.now()
 
         self.loadServerConfig(configFile)
-        if self.allServers == DEFAULT_SERVER_LIST:
+        if self.allServers == DEFAULT_SERVER_LIST or parent.parent.cachedServersTime is 0 or (datetime.now() - parent.parent.cachedServersTime) > timedelta(minutes=10):
             self.validateServers()
-        parent.parent.cachedServers = self.allServers
-        parent.parent.cachedServersTime = datetime.now()
+            log.debug('GameServer(): Caching server list in grandparent PUG instance.')
+            parent.parent.cachedServers = self.allServers
+            parent.parent.cachedServersTime = datetime.now()
         self.updateServerStatus()
         
         # Stream GameSpy Unreal Query data using UDP sockets to send packets to the query port of the target server, then
@@ -1030,7 +1031,11 @@ class GameServer:
     #########################################################################################
     @property
     def format_current_serveralias(self):
-        serverName = self.allServers[self.current_serverrefs().index(self.gameServerRef)][1]
+        serverName = 'Unknown Server'
+        try:
+            serverName = self.allServers[self.current_serverrefs().index(self.gameServerRef)][1]
+        except (ValueError, IndexError):
+            pass
         if self.gameServerIP not in [None, '', '0.0.0.0']:
             serverName = self.gameServerName
         return f'{serverName}'
@@ -1235,6 +1240,7 @@ class GameServer:
                 # firstly, determine if the primary server is online and responding, then drop the local list
                 serverDefaultPresent = False
                 for svc in info:
+                    log.debug('validateServers() - checking server in API response: ' + svc['serverRef'] + ', is default: ' + str(svc['serverDefault']))
                     if svc['serverDefault'] is True and (svc['cloudManaged'] is True or svc['serverStatus']['Summary'] not in [None,'','N/A','N/AN/A']):
                         # If for whatever reason the default server isn't working, then stick to local list for now.
                         serverDefaultPresent = True
@@ -1247,7 +1253,8 @@ class GameServer:
                     for sv in info:
                         if sv['cloudManaged'] is True or sv['serverStatus']['Summary'] not in [None, '', 'N/A', 'N/AN/A']:
                             self.updateServerReference(sv['serverRef'], sv['serverName'],f'unreal://{sv["serverAddr"]}:{sv["serverPort"]}', sv['cloudManaged'], sv['serverStatus']['Summary'])
-
+                else:
+                    log.warning('Default server not present or responding in API response, falling back to local config for server list.')
                 # Write the server config:
                 self.saveServerConfig(self.configFile)
                 return True
@@ -1274,8 +1281,9 @@ class GameServer:
         log.debug(f'updateServerStatus({ignorematchStarted}) - running getServerStatus for {self.parent.mode}')
         info = self.getServerStatus()
         log.debug(f'updateServerStatus({ignorematchStarted}) -  info fetched for {self.parent.mode}')
-        log.debug(f'- serverStatus: {info["serverStatus"]}')
-        log.debug(f'- setupResult: {info["setupResult"]}')
+        if info and 'serverStatus' in info and 'setupResult' in info:
+            log.debug(f'- serverStatus: {info["serverStatus"]}')
+            log.debug(f'- setupResult: {info["setupResult"]}')
         if info:
             self.gameServerName = info['serverName']
             self.gameServerIP = info['serverAddr']
@@ -4389,7 +4397,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases=['refreshservers'])
     @commands.check(admin.hasManagerRole_Check)
-    @commands.check(isActiveChannel_Check)
     @commands.check(isPugInProgress_Warn)
     async def adminrefreshservers(self, ctx):
         """Refreshes the server list within the available pool. Admin only"""
@@ -4643,11 +4650,8 @@ class PUG(commands.Cog):
                 # await ctx.send('{0} {1} data from {2}...'.format('Fetching',item,'Sync API'))
                 await ctx.send(f'Synchronisation of {item} data for `{mode}` has not yet been implemented.')
             else:
-                if pug.ranked:
-                    endpoint = f'{pug.ratingsSyncAPI["matchDataURL"]}?&matchcode={item}'
-                else:
-                    rkData = pug.loadPugRatings(pug.ratingsFile, True)
-                    endpoint = f'{rkData["syncapi"]["matchDataURL"]}?&matchcode={item}'
+                rkData = pug.loadPugRatings(pug.ratingsFile, True)
+                endpoint = f'{rkData["syncapi"]["matchDataURL"]}?&matchcode={item}'
                 log.debug(f'rksync() - Fetching provided match from API: {endpoint}')
                 await ctx.send(f'Fetching match `{item}` from {pug.ratingsSyncAPI["matchDataURL"]}...')
                 syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
