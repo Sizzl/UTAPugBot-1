@@ -4546,8 +4546,8 @@ class PUG(commands.Cog):
         mode = pug.mode
         if pug.pugTempLocked > 1:
             pug.pugTempLocked = 0
-            await ctx.send(f'**{mode}** is now unlocked.')
-            self.processPugStatus(ctx, pug)
+            await ctx.send(f'**{mode}** is now unlocked. Use !pug to start the game.')
+            await self.processPugStatus(ctx, pug)
         else:
             await ctx.send(f'**{mode}** is not currently locked.')
     
@@ -5990,7 +5990,7 @@ class PUG(commands.Cog):
         player = ctx.message.author
         for mode, pug in self.getAllPugsInChannel(channelId=ctx.message.channel.id).items():
             log.debug(f'Processing leaveall for {player.display_name} in mode {mode} - Pug Locked: {pug.pugLocked}, Ranked: {pug.ranked}, Match Ready: {pug.matchReady}')
-            if not pug.pugLocked and (not pug.ranked and not pug.matchReady):
+            if not pug.pugLocked and not(pug.ranked and pug.matchReady):
                 await self.leave(ctx, mode)
 
     @commands.hybrid_command(aliases=['l','lv','lq'])
