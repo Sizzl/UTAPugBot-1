@@ -1338,6 +1338,7 @@ class GameServer:
 
     def setupMatch(self, numPlayers, maps, mode, startmap=''):
         if self.matchInProgress:
+            log.debug('setupMatch() - Match already in progress, cannot setup new match.')
             return False
 
         # Start the looped task which checks whether the server is ready
@@ -1354,7 +1355,7 @@ class GameServer:
 
         i = 0
         while self.gameServerOnDemandReady is False:
-            log.debug('Waiting for gameServerOnDemandReady...')
+            log.debug('setupMatch() - Waiting for gameServerOnDemandReady...')
             if i < 5:
                 self.controlOnDemandServer('start')
             else:
@@ -1368,6 +1369,7 @@ class GameServer:
                self.gameServerOnDemandReady=True # fail the setup instead, and allow for manual retry.
 
         if not self.gameServerOnDemandReady:
+            log.debug('setupMatch() - On-demand server is not ready.')
             return False
 
         self.blueScore = 0
@@ -1392,7 +1394,7 @@ class GameServer:
             self.spectatorPassword = info['setupConfig']['specPass']
             
             return self.lastSetupResult == 'Completed'
-
+        log.debug('setupMatch() - Invalid setup API data returned.')
         self.matchInProgress = False
         self.lastSetupResult = 'Failed'
         return False
@@ -2444,6 +2446,7 @@ class PUG(commands.Cog):
     def __init__(self, bot, configFile=DEFAULT_CONFIG_FILE):
         self.bot = bot
         self.activeChannel = None 
+        self.extraLogging = False
         self.customStaticEmojis = {}
         self.customAnimatedEmojis = {}
         self.utReporterChannel = None
@@ -2970,6 +2973,8 @@ class PUG(commands.Cog):
     async def updateGameServer(self):
         # Iterate over all active pugs across all channels and modes
         for channelId, mode, pug in list(self.getAllActivePugs()):
+            if self.extraLogging:
+                log.debug(f'updateGameServer() loop: Checking {channelId} mode {mode} [pugLocked={pug.pugLocked}]..')
             if not pug.pugLocked:
                 continue
             queueCheck = False
@@ -3573,7 +3578,8 @@ class PUG(commands.Cog):
                 # Send multi-query request for lots of info
                 if pug.gameServer.utQueryServer('status\\\\level_property\\timedilation\\\\game_property\\teamscore\\\\game_property\\teamnamered\\\\game_property\\teamnameblue\\\\player_property\\Health\\\\game_property\\elapsedtime\\\\game_property\\remainingtime\\\\game_property\\bmatchmode\\\\game_property\\friendlyfirescale\\\\game_property\\currentdefender\\\\game_property\\bdefenseset\\\\game_property\\matchcode\\\\game_property\\fraglimit\\\\game_property\\timelimit\\\\rules'):
                     queryData = pug.gameServer.utQueryData
-                    log.debug(queryData)
+                    if self.extraLogging:
+                        log.debug(f'queryServerStats() - queryData: {queryData}')
 
                     # Build embed data
                     summary = {
@@ -4310,6 +4316,13 @@ class PUG(commands.Cog):
             self.savePugConfig(self.configFile)
             return
         await ctx.send('This is not an active PUG channel.')
+
+    @commands.command(aliases=['xlog'])
+    @commands.guild_only()
+    @commands.check(admin.hasManagerRole_Check)
+    async def toggledebug(self, ctx):
+        self.extraLogging = not self.extraLogging
+        await ctx.send(f'Debug logging is now {"enabled" if self.extraLogging else "disabled"}.')
 
     @commands.command(aliases=['aa','aap','adminaddplayer'])
     @commands.guild_only()
