@@ -2238,8 +2238,7 @@ class AssaultPug(PugTeams):
                             g['scorered'] = redScore
                             g['scoreblue'] = blueScore
                             g['completed'] = hasEnded
-                            if (hasEnded):
-                                g['enddate'] = timeEnded
+                            g['enddate'] = timeEnded
                             if len(self.red) > 0:
                                 g['teamred'] = self.returnPIDs(self.red)
                             if len(self.blue) > 0:
