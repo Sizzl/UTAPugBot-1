@@ -2372,12 +2372,18 @@ class AssaultPug(PugTeams):
                                 p['ratinghistory'] = []
                             if p['ratinghistory'] in [None,'']:
                                 p['ratinghistory'] = []
-                            p['ratinghistory'].append({
+                            lastgame = {
                                 'matchref': p['lastgameref'],
                                 'matchdate': p['lastgamedate'],
                                 'ratingbefore': p['ratingprevious'],
                                 'ratingafter': p['ratingvalue']
-                            })
+                            }
+                            try:
+                                p['ratinghistory'].append(lastgame)
+                            except Exception as e:
+                                log.error(f'Error occurred while appending to ratinghistory for {p["did"]}: {e}')
+                                p['ratinghistory']= []
+                                p['ratinghistory'].append(lastgame)
                             # Update latest rating block
                             p['ratingprevious'] = p['ratingvalue']
                             if p['did'] in winners:
