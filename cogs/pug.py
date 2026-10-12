@@ -1990,106 +1990,10 @@ class AssaultPug(PugTeams):
     def loadPugRatings(self, ratingsFile, returnDataOnly: bool = False):
         """Loads the ranked game ratings data from the JSON configuration file"""
         return self.parent.loadPugRatings(ratingsFile, returnDataOnly)
-        # Legacy code - now handled by parent
-        self.ratings = None # save before load?
-        log.debug(f'loadPugRatings({ratingsFile}) started')
-        with open(ratingsFile, 'r') as f:
-            log.debug(f'loadPugRatings({ratingsFile}) json.load enter')
-            try:
-                ratingsData = json.load(f)
-            except:
-                ratingsData = None
-            log.debug(f'loadPugRatings({ratingsFile}) json.load finished')
-            if ratingsData:
-                if returnDataOnly: # For in-line updates
-                    return ratingsData
-                if 'syncapi' in ratingsData:
-                    self.ratingsSyncAPI = ratingsData['syncapi']
-                if 'rankedgames' in ratingsData:
-                    # Find the mode and specific ratings data
-                    for gamedata in ratingsData['rankedgames']:
-                        if str(gamedata['mode']).upper() == self.mode.upper():
-                            self.ratings = gamedata
-                            log.debug(f'loadPugRatings({ratingsFile}) stored ratings data for {self.mode}')
-                            return True
-                else:
-                    # Generate an empty ranked schema with the default mode
-                    rkData = {
-                        'syncapi': self.ratingsSyncAPI,
-                        'rankedgames': [
-                            {
-                                'mode': MODE_RANKED_DEFAULT,
-                                'maps':{},
-                                'eligibility':'',
-                                'registrations':[],
-                                'ratings':[],
-                                'lastsync':'',
-                                'fixedpicklimit':0,
-                                'capMode':2,
-                                'capWindow':0,
-                                'capRole':'Ranked Captains',
-                                'games':[],
-                                'scoring':{
-                                    'mode': "permap",
-                                    'teamWin': 3,
-                                    'teamLose': -3,
-                                    'capWin': 1,
-                                    'capLose': 0,
-                                    'volCapWin': 0,
-                                    'volCapLose': 0
-                                },
-                                'scoringhistory':[],
-                                'lastupdated':'',
-                                'startmapfrompick':'',
-                                'randomorder':''
-                            }
-                        ]
-                    }
-                    self.savePugRatings(ratingsFile, rkData)
-                    self.loadPugRatings(ratingsFile)
-            else:
-                log.debug(f'loadPugRatings({ratingsFile}) ratingsData is not a valid object')
-        return False
         
     def savePugRatings(self, ratingsFile, ratingsUpdates = None):
         """Saves the ranked game ratings data to the JSON configuration file"""
         return self.parent.savePugRatings(ratingsFile, ratingsUpdates)
-        # Legacy code - now handled by parent
-        with open(ratingsFile) as fr:
-            try:
-                ratingsData = json.load(fr)
-            except:
-                ratingsData = None
-        if ratingsData not in [None,''] or ratingsUpdates not in [None,'']:
-            with open(ratingsFile,'w') as fw:
-                # Update the specific ratings data section before dumping it
-                if ratingsUpdates not in [None,'']:
-                    if 'rankedgames' in ratingsUpdates and ratingsUpdates['rankedgames'] is not None:
-                        log.debug(f'savePugRatings({ratingsFile}) updating ratingsData directly from provided ratingsUpdates.')
-                        ratingsData['rankedgames']  = ratingsUpdates['rankedgames'] # pass valid data straight into the file
-                else:
-                    if self.ratings not in [None,'']:
-                        if ratingsData['rankedgames'] is not None:
-                            for gamedata in ratingsData['rankedgames']:
-                                if gamedata['mode'] == self.ratings['mode']:
-                                    self.ratings['lastupdated'] = datetime.now().isoformat()
-                                    for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','scoringhistory','lastupdated','randomorder']:
-                                        if key not in self.ratings:
-                                            if key in ['registrations','ratings','games','scoringhistory']:
-                                                self.ratings[key] = []
-                                            elif key in ['maps','scoring']:
-                                                self.ratings[key] = {}
-                                            else:
-                                                self.ratings[key] = ""
-                                        gamedata[key] = self.ratings[key]
-                        else:
-                            ratingsData['rankedgames'].append(self.ratings)
-                    else:
-                        log.warning(f'savePugRatings({ratingsFile}) failed to generate ratingsData. Cached ratings not present and updates not provided.')
-                ratingsData['savedate'] = datetime.now().isoformat()
-                json.dump(ratingsData, fw, indent=4)
-                fw.close()
-        return True
 
     def makeRatedTeams(self, simulatedRatings=[]):
         """Uses bitmask comparison bin-sorting to work out a balanced set of teams"""
@@ -2341,24 +2245,26 @@ class AssaultPug(PugTeams):
                 scoremode = modeData['scoring']['mode']
                 capWinRP = modeData['scoring']['capWin']
                 capLoseRP = modeData['scoring']['capLose']
+                winPoints = modeData['scoring']['teamWin']
+                losePoints = modeData['scoring']['teamLose']
                 # Check scoring history to see if rules have changed since the match
                 if 'scoringhistory' in modeData and len(modeData['scoringhistory']):
                     for s in modeData['scoringhistory']:
                         if 'validFrom' in s and 'teamWin' in s and 'teamLose' in s:
                             if datetime.fromisoformat(match['enddate']) >= datetime.fromisoformat(s['validFrom']):
                                 scoremode = s['mode']
-                                winScore = s['teamWin']
-                                loseScore = s['teamLose']
+                                winPoints = s['teamWin']
+                                losePoints = s['teamLose']
                                 if 'capWin' in s:
                                     capWinRP = s['capWin']
                                 if 'capLose' in s:
                                     capLoseRP = s['capLose']
                 if scoremode == 'permap':
-                    winRP = (modeData['scoring']['teamWin']*winScore) + (modeData['scoring']['teamLose']*loseScore)
-                    loseRP = (modeData['scoring']['teamWin']*loseScore) + (modeData['scoring']['teamLose']*winScore)
+                    winRP = (winPoints*winScore) + (losePoints*loseScore)
+                    loseRP = (winPoints*loseScore) + (losePoints*winScore)
                 else:
-                    winRP = modeData['scoring']['teamWin']
-                    loseRP = modeData['scoring']['teamLose']
+                    winRP = winPoints
+                    loseRP = losePoints
                 for p in modeData['ratings']:
                     if p['lastgameref'] != match['gameref']:
                         if len(p['lastgameref']) == 0:
@@ -4777,6 +4683,9 @@ class PUG(commands.Cog):
                                 log.debug('rksync() - Match marked as completed successfully.')
                                 await self.rkvoidmatch(ctx,mode,item)
                                 await ctx.send('Match data synchronised successfully.')
+                            else:
+                                log.debug('rksync() - Match marked as incomplete due to uneven teams.')
+                                await ctx.send(f'Match data synchronised successfully, but match is incomplete due to uneven teams. Please check the match reference `{item}` for accuracy.')
                         return True
                 if syData == None:
                     await ctx.send(f'Could not sync match `{item}` for mode {mode}. API requests throttled, please try again in 10s.')
@@ -4787,7 +4696,7 @@ class PUG(commands.Cog):
     @commands.hybrid_command(aliases=['rankrecalc','rankcalc','rkrpcalc'])
     @commands.guild_only()
     @commands.check(admin.hasManagerRole_Check)
-    async def rkrecalc(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT, seed: int = 0, pid: int = 0):
+    async def rkrecalc(self, ctx, player: discord.Member, mode: str = MODE_RANKED_DEFAULT, seed: int = 0, pid: int = 0, verbose: int = 0):
         """Recalculates RP of a player: PlayerNick GameMode(e.g. rASPlus) <optional seed value>"""
         pug = self.getPugForModeInChannel(channelId=self.activeChannel.id, mode=mode, ignoreMissing=True)
         if pug is None:
@@ -4803,8 +4712,12 @@ class PUG(commands.Cog):
                 msg = self.ratingsPlayerDataHandler('rkrecalc',mode,player,seed)
             if len(msg) > 2000:
                 for m in msg.split('\n'):
-                    if len(m):
+                    if len(m) and verbose > 0:
                         await ctx.send(m)
+                if len(m) and verbose == 0:
+                    await ctx.send(f'Recalculation complete - last result: {m}')
+                elif verbose == 0:
+                    await ctx.send('Recalculation complete. Check logs for detail.')
             else:
                 await ctx.send(msg)
         return True
