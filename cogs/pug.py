@@ -1896,6 +1896,7 @@ class AssaultPug(PugTeams):
                             'volCapWin': 0,
                             'volCapLose': 0
                         },
+                        'scoringhistory':[],
                         'lastupdated':'',
                         'startmapfrompick':'',
                         'randomorder':''
@@ -2020,7 +2021,25 @@ class AssaultPug(PugTeams):
                                 'eligibility':'',
                                 'registrations':[],
                                 'ratings':[],
-                                'lastsync':''
+                                'lastsync':'',
+                                'fixedpicklimit':0,
+                                'capMode':2,
+                                'capWindow':0,
+                                'capRole':'Ranked Captains',
+                                'games':[],
+                                'scoring':{
+                                    'mode': "permap",
+                                    'teamWin': 3,
+                                    'teamLose': -3,
+                                    'capWin': 1,
+                                    'capLose': 0,
+                                    'volCapWin': 0,
+                                    'volCapLose': 0
+                                },
+                                'scoringhistory':[],
+                                'lastupdated':'',
+                                'startmapfrompick':'',
+                                'randomorder':''
                             }
                         ]
                     }
@@ -2052,9 +2071,9 @@ class AssaultPug(PugTeams):
                             for gamedata in ratingsData['rankedgames']:
                                 if gamedata['mode'] == self.ratings['mode']:
                                     self.ratings['lastupdated'] = datetime.now().isoformat()
-                                    for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','lastupdated','randomorder']:
+                                    for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','scoringhistory','lastupdated','randomorder']:
                                         if key not in self.ratings:
-                                            if key in ['registrations','ratings','games']:
+                                            if key in ['registrations','ratings','games','scoringhistory']:
                                                 self.ratings[key] = []
                                             elif key in ['maps','scoring']:
                                                 self.ratings[key] = {}
@@ -2321,6 +2340,18 @@ class AssaultPug(PugTeams):
                 scoremode = modeData['scoring']['mode']
                 capWinRP = modeData['scoring']['capWin']
                 capLoseRP = modeData['scoring']['capLose']
+                # Check scoring history to see if rules have changed since the match
+                if 'scoringhistory' in modeData and len(modeData['scoringhistory']):
+                    for s in modeData['scoringhistory']:
+                        if 'validFrom' in s and 'teamWin' in s and 'teamLose' in s:
+                            if datetime.fromisoformat(match['enddate']) >= datetime.fromisoformat(s['validFrom']):
+                                scoremode = s['mode']
+                                winScore = s['teamWin']
+                                loseScore = s['teamLose']
+                                if 'capWin' in s:
+                                    capWinRP = s['capWin']
+                                if 'capLose' in s:
+                                    capLoseRP = s['capLose']
                 if scoremode == 'permap':
                     winRP = (modeData['scoring']['teamWin']*winScore) + (modeData['scoring']['teamLose']*loseScore)
                     loseRP = (modeData['scoring']['teamWin']*loseScore) + (modeData['scoring']['teamLose']*winScore)
@@ -2865,7 +2896,25 @@ class PUG(commands.Cog):
                                 'eligibility':'',
                                 'registrations':[],
                                 'ratings':[],
-                                'lastsync':''
+                                'lastsync':'',
+                                'fixedpicklimit':0,
+                                'capMode':2,
+                                'capWindow':0,
+                                'capRole':'Ranked Captains',
+                                'games':[],
+                                'scoring':{
+                                    'mode': "permap",
+                                    'teamWin': 3,
+                                    'teamLose': -3,
+                                    'capWin': 1,
+                                    'capLose': 0,
+                                    'volCapWin': 0,
+                                    'volCapLose': 0
+                                },
+                                'scoringhistory':[],
+                                'lastupdated':'',
+                                'startmapfrompick':'',
+                                'randomorder':''
                             }
                         ]
                     }
@@ -2897,9 +2946,9 @@ class PUG(commands.Cog):
                                 for gamedata in ratingsData['rankedgames']:
                                     if str(gamedata['mode']).upper() == str(cacheddata['mode']).upper():
                                         cacheddata['lastupdated'] = datetime.now().isoformat()
-                                        for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','lastupdated','randomorder']:
+                                        for key in ['maps','eligibility','registrations','ratings','lastsync','fixedpicklimit','startmapfrompick','capMode','capWindow','capRole','games','scoring','scoringhistory','lastupdated','randomorder']:
                                             if key not in cacheddata:
-                                                if key in ['registrations','ratings','games']:
+                                                if key in ['registrations','ratings','games','scoringhistory']:
                                                     cacheddata[key] = []
                                                 elif key in ['maps','scoring']:
                                                     cacheddata[key] = {}
@@ -4653,7 +4702,7 @@ class PUG(commands.Cog):
                 rkData = pug.loadPugRatings(pug.ratingsFile, True)
                 endpoint = f'{rkData["syncapi"]["matchDataURL"]}?&matchcode={item}'
                 log.debug(f'rksync() - Fetching provided match from API: {endpoint}')
-                await ctx.send(f'Fetching match `{item}` from {pug.ratingsSyncAPI["matchDataURL"]}...')
+                await ctx.send(f'Fetching match `{item}` from {rkData["syncapi"]["matchDataURL"]}...')
                 syData = self.ratingsSync(endpoint, body='', restrict=True, delay=5)
                 if syData not in [{},None,''] and 'match_summary' in syData:
                     log.debug('rksync() - Match data fetched and valid.')
@@ -5142,8 +5191,10 @@ class PUG(commands.Cog):
                         'capWin': max(0, capwin),
                         'capLose': caplose,
                         'volCapWin': max(0, volcapwin),
-                        'volCapLose': volcaplose
+                        'volCapLose': volcaplose,
+                        'validFrom': datetime.now().isoformat()
                     }
+                    x['scoringhistory'].append(x['scoring'])
                     newSettings = f'Scoring mode: {x["scoring"]["mode"]}; Points - Winning team: {x["scoring"]["teamWin"]}, Losing Team: {x["scoring"]["teamLose"]}, Winning Cap: {x["scoring"]["capWin"]}, Losing Cap: {x["scoring"]["capLose"]}'
                     if 'capMode' in x and x['capMode'] == 3:
                         newSettings = newSettings+f', Winning Voluntary Captain: {x["scoring"]["volCapWin"]}, Losing Voluntary Captain: {x["scoring"]["volCapLose"]}'
@@ -5479,7 +5530,6 @@ class PUG(commands.Cog):
 
     @commands.hybrid_command(aliases = ['serverlist'])
     @commands.guild_only()
-    @commands.check(isActiveChannel_Check)
     async def listservers(self, ctx):
         await ctx.send(self.pugInfo.gameServer.format_showall_servers)
 
