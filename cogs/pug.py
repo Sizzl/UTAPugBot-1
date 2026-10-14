@@ -5668,18 +5668,18 @@ class PUG(commands.Cog):
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.pugLocked:
-            await ctx.send('Player limit cannot be changed while pug is in progress.')
+            await ctx.send(f'{targetPug.mode} player limit cannot be changed while pug is in progress.')
             return
         if targetPug.ranked != True and targetPug.captainsReady:
-            await ctx.send('Pug already in picking mode. Reset if you wish to change player limit.')
+            await ctx.send(f'{targetPug.mode} is already in picking mode. Reset if you wish to change player limit.')
         elif (int(limit) % 2 == 0 and int(limit) >= MODE_CONFIG[targetPug.mode].minPlayers and int(limit) <= MODE_CONFIG[targetPug.mode].maxPlayers):
             targetPug.setMaxPlayers(int(limit))
-            await ctx.send('Player limit set to ' + str(targetPug.maxPlayers))
+            await ctx.send(f'{targetPug.mode} player limit set to ' + str(targetPug.maxPlayers))
             await self.processPugStatus(ctx, targetPug)
         elif (int(limit) % 2 == 0 and int(limit) < len(targetPug.players) + len(targetPug.red) + len(targetPug.blue)):
-            await ctx.send(f'Player limit cannot be set to {limit} as there are already {len(targetPug.players) + len(targetPug.red) + len(targetPug.blue)} players signed up.')
+            await ctx.send(f'{targetPug.mode} player limit cannot be set to {limit} as there are already {len(targetPug.players) + len(targetPug.red) + len(targetPug.blue)} players signed up.')
         else:
-            await ctx.send(f'Player limit unchanged. Players must be a multiple of 2 + between {MODE_CONFIG[targetPug.mode].minPlayers} and {MODE_CONFIG[targetPug.mode].maxPlayers}')
+            await ctx.send(f'{targetPug.mode} player limit unchanged. Players must be a multiple of 2 + between {MODE_CONFIG[targetPug.mode].minPlayers} and {MODE_CONFIG[targetPug.mode].maxPlayers}')
 
     @commands.hybrid_command(aliases = ['adminsp','asp'])
     @commands.guild_only()
@@ -5693,13 +5693,13 @@ class PUG(commands.Cog):
             targetPug = self.getPugForChannel(channelId=ctx.message.channel.id)
 
         if targetPug.ranked != True and targetPug.captainsReady:
-            await ctx.send('Pug already in picking mode. Reset if you wish to change player limit.')
+            await ctx.send(f'{targetPug.mode} already in picking mode. Reset if you wish to change player limit.')
         elif (limit % 2 == 0):
             targetPug.setMaxPlayers(limit)
-            await ctx.send(f'Player limit forcefully set to {targetPug.maxPlayers}. ({targetPug.mode} min: {MODE_CONFIG[targetPug.mode].minPlayers}, max: {MODE_CONFIG[targetPug.mode].maxPlayers})')
+            await ctx.send(f'{targetPug.mode} player limit forcefully set to {targetPug.maxPlayers}. ({targetPug.mode} min: {MODE_CONFIG[targetPug.mode].minPlayers}, max: {MODE_CONFIG[targetPug.mode].maxPlayers})')
             await self.processPugStatus(ctx, targetPug)
         else:
-            await ctx.send('Player limit unchanged. Players must be a multiple of 2')
+            await ctx.send(f'{targetPug.mode} player limit unchanged. Players must be a multiple of 2')
 
 
     @commands.hybrid_command()
@@ -5718,16 +5718,16 @@ class PUG(commands.Cog):
                 pass
 
         if (targetPug.ranked and targetPug.ratings is not None and 'maps' in targetPug.ratings and 'fixedpicklimit' in targetPug.ratings['maps'] and targetPug.ratings['maps']['fixedpicklimit'] > 0):
-            await ctx.send(f'Map limit is fixed to {targetPug.maps.maxMaps} maps within this ranked mode.')
+            await ctx.send(f'{targetPug.mode} map limit is fixed to {targetPug.maps.maxMaps} maps within this ranked mode.')
             return
         if (targetPug.pugLocked != True and targetPug.maps.setMaxMaps(limit)):
-            await ctx.send(f'Map limit set to {targetPug.maps.maxMaps}')
+            await ctx.send(f'{targetPug.mode} map limit set to {targetPug.maps.maxMaps}')
             if targetPug.teamsReady:
                 # Only need to do this if maps already being picked, as it could mean the pug needs to be setup.
                 await self.processPugStatus(ctx, targetPug)
         else:
             modemsg = ' Specify a mode to set a limit, e.g.: !setmaps <mode> <limit>' if mode == '' else ''
-            await ctx.send(f'Map limit unchanged. Map limit is {targetPug.maps.maxMapsLimit}.{modemsg}')
+            await ctx.send(f'{targetPug.mode} map limit unchanged. Map limit is {targetPug.maps.maxMapsLimit}.{modemsg}')
 
     @commands.hybrid_command(aliases = ['adminendmatch','endmatch'])
     @commands.guild_only()
